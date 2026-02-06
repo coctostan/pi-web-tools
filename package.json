@@ -1,0 +1,37 @@
+{
+  "name": "pi-web-tools",
+  "version": "0.1.0",
+  "description": "Web search via Exa, content extraction, and GitHub repo cloning for Pi coding agent",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "extension",
+    "web-search",
+    "exa",
+    "fetch",
+    "github"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/USER/pi-web-tools.git"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.5.0",
+    "linkedom": "^0.16.0",
+    "p-limit": "^6.1.0",
+    "turndown": "^7.2.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0",
+    "typescript": "^5.7.0"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
