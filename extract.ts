@@ -93,7 +93,7 @@ async function extractViaHttp(
 
   // Non-HTML: return raw text
   if (!isHtml(contentType)) {
-    const title = extractHeadingTitle(text) || titleFromUrl(url);
+    const title = extractHeadingTitle(text.slice(0, 4096)) || titleFromUrl(url);
     return { url, title, content: text, error: null };
   }
 

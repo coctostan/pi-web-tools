@@ -47,7 +47,8 @@ export function storeResult(id: string, data: StoredResultData): void {
 
   // Evict oldest entries if over capacity
   while (store.size > MAX_ENTRIES) {
-    const oldest = store.keys().next().value!;
+    const oldest = store.keys().next().value;
+    if (oldest === undefined) break;
     store.delete(oldest);
   }
 }
@@ -82,7 +83,9 @@ export function restoreFromSession(ctx: ExtensionContext): void {
     if (entry.type !== "custom" || entry.customType !== "web-tools-results") continue;
 
     const data = entry.data as StoredResultData | undefined;
-    if (!data || !data.id) continue;
+    if (!data || !data.id || !data.type) continue;
+    if (data.type === "search" && !Array.isArray(data.queries)) continue;
+    if (data.type === "fetch" && !Array.isArray(data.urls)) continue;
 
     // Skip entries older than 1 hour
     if (data.timestamp && now - data.timestamp > ONE_HOUR_MS) continue;
@@ -92,7 +95,8 @@ export function restoreFromSession(ctx: ExtensionContext): void {
 
   // Enforce max capacity after restore
   while (store.size > MAX_ENTRIES) {
-    const oldest = store.keys().next().value!;
+    const oldest = store.keys().next().value;
+    if (oldest === undefined) break;
     store.delete(oldest);
   }
 }

@@ -1,6 +1,6 @@
 # pi-web-tools
 
-Web search, content extraction, and GitHub repo cloning for the [Pi coding agent](https://github.com/nicholasgasior/pi-coding-agent).
+Web search, content extraction, and GitHub repo cloning for the [Pi coding agent](https://github.com/mariozechner/pi-coding-agent).
 
 A lightweight extension providing three tools:
 
@@ -17,7 +17,7 @@ pi install npm:pi-web-tools
 Or install from git:
 
 ```bash
-pi install github:USER/pi-web-tools
+pi install github:coctostan/pi-web-tools
 ```
 
 ## Setup

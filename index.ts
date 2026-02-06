@@ -137,7 +137,7 @@ export default function (pi: ExtensionAPI) {
           try {
             const searchResults = await searchExa(q, {
               apiKey: config.exaApiKey,
-              numResults: numResults !== undefined ? Math.min(numResults, 20) : 5,
+              numResults: numResults !== undefined ? Math.max(1, Math.min(numResults, 20)) : 5,
               signal: combinedSignal,
             });
             const formatted = formatSearchResults(searchResults);
