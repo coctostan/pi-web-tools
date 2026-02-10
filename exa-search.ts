@@ -36,12 +36,19 @@ function parseExaResults(data: unknown): ExaSearchResult[] {
     throw new Error("Malformed Exa API response: results must be an array");
   }
 
-  return raw.map((r: ExaRawResult) => ({
-    title: typeof r.title === "string" ? r.title : "",
-    url: typeof r.url === "string" ? r.url : "",
-    snippet: typeof r.text === "string" ? r.text : "",
-    publishedDate: typeof r.publishedDate === "string" ? r.publishedDate : undefined,
-  }));
+  return raw.map((entry, index) => {
+    if (!isRecord(entry)) {
+      throw new Error(`Malformed Exa API response: results[${index}] must be an object`);
+    }
+
+    const r = entry as ExaRawResult;
+    return {
+      title: typeof r.title === "string" ? r.title : "",
+      url: typeof r.url === "string" ? r.url : "",
+      snippet: typeof r.text === "string" ? r.text : "",
+      publishedDate: typeof r.publishedDate === "string" ? r.publishedDate : undefined,
+    };
+  });
 }
 
 export async function searchExa(query: string, options: ExaSearchOptions): Promise<ExaSearchResult[]> {

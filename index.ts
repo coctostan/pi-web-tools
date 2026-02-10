@@ -5,7 +5,7 @@ import { searchExa, formatSearchResults } from "./exa-search.js";
 import { extractContent, fetchAllContent } from "./extract.js";
 import { extractGitHub, clearCloneCache, parseGitHubUrl } from "./github-extract.js";
 import { getConfig, resetConfigCache } from "./config.js";
-import { dedupeUrls, normalizeFetchContentInput, normalizeWebSearchInput } from "./tool-params.js";
+import { normalizeFetchContentInput, normalizeWebSearchInput } from "./tool-params.js";
 import {
   generateId,
   storeResult,

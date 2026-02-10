@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
-  mode: "oversize" as "oversize" | "clone-fail",
+  mode: "oversize" as "oversize" | "clone-fail" | "clone-throw",
   rmSync: vi.fn(),
 }));
 
@@ -45,6 +45,9 @@ vi.mock("node:child_process", () => ({
     }
 
     if (joined.startsWith("gh repo clone") || joined.startsWith("git clone")) {
+      if (state.mode === "clone-throw") {
+        throw new Error("clone exploded");
+      }
       if (state.mode === "clone-fail") {
         cb(new Error("clone failed"), "", "");
       } else {
@@ -81,7 +84,24 @@ describe("extractGitHub clone behavior", () => {
 
     const result = await extractGitHub("https://github.com/owner/repo");
     expect(result).toBeNull();
-    expect(state.rmSync).toHaveBeenCalled();
+
+    const expectedPath = "/tmp/pi-github-repos-test/owner/repo";
+    expect(state.rmSync).toHaveBeenCalledWith(expectedPath, { recursive: true, force: true });
+    expect(state.rmSync.mock.calls.length).toBeGreaterThan(1);
+
+    clearCloneCache();
+  });
+
+  it("returns null and cleans up when clone command throws unexpectedly", async () => {
+    state.mode = "clone-throw";
+
+    const { extractGitHub, clearCloneCache } = await import("./github-extract.js");
+
+    await expect(extractGitHub("https://github.com/owner/repo")).resolves.toBeNull();
+    expect(state.rmSync).toHaveBeenCalledWith("/tmp/pi-github-repos-test/owner/repo", {
+      recursive: true,
+      force: true,
+    });
 
     clearCloneCache();
   });

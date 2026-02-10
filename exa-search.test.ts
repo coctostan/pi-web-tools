@@ -153,6 +153,17 @@ describe("exa-search", () => {
         .toThrow(/Malformed Exa API response/i);
     });
 
+    it("throws a friendly error when results entries are not objects", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [null] }),
+      });
+
+      await expect(searchExa("test query", { apiKey: "key" }))
+        .rejects
+        .toThrow(/Malformed Exa API response/i);
+    });
+
     it("wraps network errors with query context", async () => {
       mockFetch.mockRejectedValueOnce(new Error("ENOTFOUND"));
 
