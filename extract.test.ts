@@ -114,6 +114,31 @@ describe("extract", () => {
       // Should NOT try Jina fallback for non-recoverable errors
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
+
+    it("falls back to Jina Reader when HTTP extraction is incomplete", async () => {
+      const shortHtml = "<!doctype html><html><head><title>X</title></head><body><article><p>hi</p></article></body></html>";
+      const goodMd = "# Title\n\n" + "useful content ".repeat(30);
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "text/html", "content-length": String(shortHtml.length) }),
+          text: async () => shortHtml,
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "text/markdown" }),
+          text: async () => `Markdown Content:\n\n${goodMd}`,
+        });
+
+      const result = await extractContent("https://example.com/post");
+
+      expect(result.error).toBeNull();
+      expect(result.content).toContain("useful content");
+      expect(mockFetch.mock.calls[1][0]).toContain("https://r.jina.ai/");
+    });
   });
 
   describe("fetchAllContent", () => {

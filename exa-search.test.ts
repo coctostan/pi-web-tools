@@ -141,5 +141,35 @@ describe("exa-search", () => {
         publishedDate: undefined,
       });
     });
+
+    it("throws a friendly error for malformed Exa responses", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: "not-an-array" }),
+      });
+
+      await expect(searchExa("test query", { apiKey: "key" }))
+        .rejects
+        .toThrow(/Malformed Exa API response/i);
+    });
+
+    it("throws a friendly error when results entries are not objects", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [null] }),
+      });
+
+      await expect(searchExa("test query", { apiKey: "key" }))
+        .rejects
+        .toThrow(/Malformed Exa API response: results\[0\] must be an object/i);
+    });
+
+    it("wraps network errors with query context", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("ENOTFOUND"));
+
+      await expect(searchExa("hello world", { apiKey: "key" }))
+        .rejects
+        .toThrow(/Exa request failed.*hello world/i);
+    });
   });
 });

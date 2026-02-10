@@ -1,36 +1,32 @@
-# pi-web-tools
+# @coctostan/pi-exa-gh-web-tools
 
-Web search, content extraction, and GitHub repo cloning for the [Pi coding agent](https://github.com/mariozechner/pi-coding-agent).
+![Pi Web Tools Banner](https://raw.githubusercontent.com/coctostan/pi-exa-gh-web-tools/main/assets/banner-v3.jpg)
 
-A lightweight extension providing three tools:
-
-- **`web_search`** — Search the web via [Exa](https://exa.ai) with snippet extraction
-- **`fetch_content`** — Fetch any URL and extract clean markdown (HTML via Readability, Jina Reader fallback, GitHub via clone)
-- **`get_search_content`** — Retrieve stored results from previous searches/fetches
+Web search via Exa, content extraction (Readability + Jina fallback), and GitHub repo cloning for the Pi coding agent.
 
 ## Install
 
 ```bash
-pi install npm:pi-web-tools
+pi install npm:@coctostan/pi-exa-gh-web-tools
 ```
 
-Or install from git:
+Or from GitHub:
 
 ```bash
-pi install github:coctostan/pi-web-tools
+pi install github:coctostan/pi-exa-gh-web-tools
 ```
 
-## Setup
+## Configuration
 
-### Exa API Key (required for web_search)
+### Exa API Key (required for `web_search`)
 
-Get a key at [exa.ai](https://exa.ai) and set it via environment variable:
+Set an environment variable:
 
 ```bash
 export EXA_API_KEY="your-key-here"
 ```
 
-Or add it to the config file `~/.pi/web-tools.json`:
+Or create `~/.pi/web-tools.json`:
 
 ```json
 {
@@ -38,23 +34,9 @@ Or add it to the config file `~/.pi/web-tools.json`:
 }
 ```
 
-The environment variable takes precedence over the config file.
+Environment variable takes precedence.
 
-### GitHub CLI (recommended for fetch_content)
-
-For GitHub repo cloning, install the [GitHub CLI](https://cli.github.com/):
-
-```bash
-# Debian/Ubuntu
-sudo apt install gh
-
-# Or via conda, brew, etc.
-gh auth login
-```
-
-Without `gh`, the extension falls back to `git clone` (works for public repos).
-
-## Configuration
+### Optional config file
 
 Config file: `~/.pi/web-tools.json` (auto-reloaded every 30 seconds)
 
@@ -69,99 +51,80 @@ Config file: `~/.pi/web-tools.json` (auto-reloaded every 30 seconds)
 }
 ```
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `exaApiKey` | `null` | Exa API key (env `EXA_API_KEY` overrides) |
-| `github.maxRepoSizeMB` | `350` | Skip cloning repos larger than this |
-| `github.cloneTimeoutSeconds` | `30` | Abort clone after this many seconds |
-| `github.clonePath` | `/tmp/pi-github-repos` | Where to store cloned repos |
+Override config path with:
+
+```bash
+export PI_WEB_TOOLS_CONFIG="$HOME/.pi/web-tools.json"
+```
 
 ## Tools
 
 ### `web_search`
 
-Search the web using Exa. Returns results with snippets and source URLs.
+Search the web using Exa.
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `query` | `string` | Single search query |
-| `queries` | `string[]` | Multiple queries (batch) |
-| `numResults` | `number` | Results per query (default: 5, max: 20) |
+Parameters:
 
-**Example:**
-```
-Search for "TypeScript 5.8 new features"
+| name | type | description |
+| --- | --- | --- |
+| `query` | string (optional) | Single search query |
+| `queries` | string[] (optional) | Batch search queries |
+| `numResults` | number (optional) | Results per query (default 5, max 20) |
+
+Example:
+
+```ts
+web_search({ query: "best practices for react server components" })
 ```
 
 ### `fetch_content`
 
-Fetch URL(s) and extract readable content as markdown.
+Fetch URL(s) and extract readable content as markdown. Supports GitHub repository contents (clone + tree/file views).
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `url` | `string` | Single URL to fetch |
-| `urls` | `string[]` | Multiple URLs (parallel, max 3 concurrent) |
-| `forceClone` | `boolean` | Force cloning large GitHub repos |
+Parameters:
 
-**Content extraction pipeline:**
+| name | type | description |
+| --- | --- | --- |
+| `url` | string (optional) | Single URL to fetch |
+| `urls` | string[] (optional) | Multiple URLs (parallel) |
+| `forceClone` | boolean (optional) | Force cloning large GitHub repos |
 
-1. **GitHub URLs** → Clone repo (shallow, depth 1), generate tree + README
-2. **HTML pages** → Readability extraction → Markdown conversion
-3. **Readability fails** → Jina Reader fallback (`r.jina.ai`)
-4. **Non-HTML** → Return raw text
+Examples:
 
-Content over 30,000 characters is truncated with a pointer to `get_search_content`.
+```ts
+fetch_content({ url: "https://react.dev/reference/react/use-client" })
+fetch_content({ url: "https://github.com/facebook/react" })
+fetch_content({ url: "https://github.com/facebook/react/blob/main/packages/react/src/React.js" })
+```
+
+#### GitHub cloning behavior
+
+- Uses `gh repo clone` when available; falls back to `git clone` for public repos.
+- Skips cloning very large repos unless `forceClone: true` is provided.
+- Clones into `github.clonePath` (default `/tmp/pi-github-repos`).
 
 ### `get_search_content`
 
 Retrieve full content from a previous `web_search` or `fetch_content` result.
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `responseId` | `string` | ID from a previous tool result |
-| `query` | `string` | Filter by query text |
-| `queryIndex` | `number` | Filter by query index |
-| `url` | `string` | Filter by URL |
-| `urlIndex` | `number` | Filter by URL index |
+Parameters:
 
-## How GitHub Cloning Works
-
-When `fetch_content` receives a GitHub URL:
-
-1. **Parse** — Extracts owner, repo, ref, path, type (root/blob/tree)
-2. **Size check** — Queries repo size via `gh api`. Skips if over threshold (default 350MB)
-3. **Clone** — Shallow clone (`--depth 1`) to temp directory, cached for the session
-4. **Generate** — Based on URL type:
-   - **Root**: Full directory tree + README content
-   - **Tree**: Directory listing for the specified path
-   - **Blob**: File content (with binary detection and 100K truncation)
-
-Non-code GitHub URLs (issues, PRs, discussions, etc.) are fetched as normal web pages.
-
-## Architecture
-
-```
-index.ts          — Extension entry point, 3 tools, session management
-├── config.ts     — Config with 30s TTL cache, env var overrides
-├── storage.ts    — LRU storage (max 50 entries, session restore)
-├── exa-search.ts — Exa API client
-├── extract.ts    — Readability + Jina Reader content extraction
-└── github-extract.ts — GitHub URL parsing, clone, tree/content generation
-```
+| name | type | description |
+| --- | --- | --- |
+| `responseId` | string | Response ID from `web_search` or `fetch_content` |
+| `query` | string (optional) | Get content for this query |
+| `queryIndex` | number (optional) | Get content for query at index |
+| `url` | string (optional) | Get content for this URL |
+| `urlIndex` | number (optional) | Get content for URL at index |
 
 ## Development
 
 ```bash
-# Install dependencies
 npm install
+npm test
+npm run test:watch
 
-# Run tests
-npx vitest run
-
-# Run tests in watch mode
-npx vitest
-
-# Load in pi for testing
+# Load in pi for manual testing
 pi -e ./index.ts
 ```
 
