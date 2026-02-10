@@ -510,16 +510,27 @@ export async function extractGitHub(
   const clonePromise = cloneRepo(owner, repo, info.ref, signal);
   cloneCache.set(key, { localPath, clonePromise });
 
-  const result = await clonePromise;
+  let result: string | null = null;
+  try {
+    result = await clonePromise;
 
-  if (!result) {
-    cloneCache.delete(key);
+    if (!result) {
+      return null;
+    }
+
+    const content = generateContent(result, info);
+    const title = info.path ? `${owner}/${repo} - ${info.path}` : `${owner}/${repo}`;
+    return { url, title, content, error: null };
+  } catch {
     return null;
+  } finally {
+    if (!result) {
+      cloneCache.delete(key);
+      try {
+        rmSync(localPath, { recursive: true, force: true });
+      } catch { /* ignore */ }
+    }
   }
-
-  const content = generateContent(result, info);
-  const title = info.path ? `${owner}/${repo} - ${info.path}` : `${owner}/${repo}`;
-  return { url, title, content, error: null };
 }
 
 // ---------------------------------------------------------------------------
