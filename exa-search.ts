@@ -65,15 +65,21 @@ export async function searchExa(query: string, options: ExaSearchOptions): Promi
     contents: { text: { maxCharacters: 1000 } },
   });
 
-  const response = await fetch(EXA_API_URL, {
-    method: "POST",
-    headers: {
-      "x-api-key": options.apiKey,
-      "Content-Type": "application/json",
-    },
-    body,
-    signal,
-  });
+  let response: Response;
+  try {
+    response = await fetch(EXA_API_URL, {
+      method: "POST",
+      headers: {
+        "x-api-key": options.apiKey,
+        "Content-Type": "application/json",
+      },
+      body,
+      signal,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`Exa request failed for query "${query}": ${msg}`);
+  }
 
   if (!response.ok) {
     const errorBody = await response.text();

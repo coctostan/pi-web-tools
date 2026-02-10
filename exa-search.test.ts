@@ -152,5 +152,13 @@ describe("exa-search", () => {
         .rejects
         .toThrow(/Malformed Exa API response/i);
     });
+
+    it("wraps network errors with query context", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("ENOTFOUND"));
+
+      await expect(searchExa("hello world", { apiKey: "key" }))
+        .rejects
+        .toThrow(/Exa request failed.*hello world/i);
+    });
   });
 });
