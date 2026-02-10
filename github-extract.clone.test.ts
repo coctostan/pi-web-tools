@@ -86,8 +86,12 @@ describe("extractGitHub clone behavior", () => {
     expect(result).toBeNull();
 
     const expectedPath = "/tmp/pi-github-repos-test/owner/repo";
-    expect(state.rmSync).toHaveBeenCalledWith(expectedPath, { recursive: true, force: true });
-    expect(state.rmSync.mock.calls.length).toBeGreaterThan(1);
+    const expectedOptions = { recursive: true, force: true };
+    const matchingCalls = state.rmSync.mock.calls.filter(
+      ([path, options]) => path === expectedPath && JSON.stringify(options) === JSON.stringify(expectedOptions)
+    );
+
+    expect(matchingCalls.length).toBeGreaterThan(1);
 
     clearCloneCache();
   });
@@ -98,10 +102,14 @@ describe("extractGitHub clone behavior", () => {
     const { extractGitHub, clearCloneCache } = await import("./github-extract.js");
 
     await expect(extractGitHub("https://github.com/owner/repo")).resolves.toBeNull();
-    expect(state.rmSync).toHaveBeenCalledWith("/tmp/pi-github-repos-test/owner/repo", {
-      recursive: true,
-      force: true,
-    });
+
+    const expectedPath = "/tmp/pi-github-repos-test/owner/repo";
+    const expectedOptions = { recursive: true, force: true };
+    const matchingCalls = state.rmSync.mock.calls.filter(
+      ([path, options]) => path === expectedPath && JSON.stringify(options) === JSON.stringify(expectedOptions)
+    );
+
+    expect(matchingCalls.length).toBeGreaterThan(1);
 
     clearCloneCache();
   });

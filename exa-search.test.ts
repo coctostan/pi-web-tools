@@ -161,7 +161,7 @@ describe("exa-search", () => {
 
       await expect(searchExa("test query", { apiKey: "key" }))
         .rejects
-        .toThrow(/Malformed Exa API response/i);
+        .toThrow(/Malformed Exa API response: results\[0\] must be an object/i);
     });
 
     it("wraps network errors with query context", async () => {
