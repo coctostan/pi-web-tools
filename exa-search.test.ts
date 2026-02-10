@@ -141,5 +141,16 @@ describe("exa-search", () => {
         publishedDate: undefined,
       });
     });
+
+    it("throws a friendly error for malformed Exa responses", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: "not-an-array" }),
+      });
+
+      await expect(searchExa("test query", { apiKey: "key" }))
+        .rejects
+        .toThrow(/Malformed Exa API response/i);
+    });
   });
 });

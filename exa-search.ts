@@ -15,6 +15,35 @@ const EXA_API_URL = "https://api.exa.ai/search";
 const DEFAULT_NUM_RESULTS = 5;
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+type ExaRawResult = {
+  title?: unknown;
+  url?: unknown;
+  text?: unknown;
+  publishedDate?: unknown;
+};
+
+function isRecord(x: unknown): x is Record<string, unknown> {
+  return !!x && typeof x === "object" && !Array.isArray(x);
+}
+
+function parseExaResults(data: unknown): ExaSearchResult[] {
+  if (!isRecord(data)) {
+    throw new Error("Malformed Exa API response: expected object");
+  }
+
+  const raw = data.results;
+  if (!Array.isArray(raw)) {
+    throw new Error("Malformed Exa API response: results must be an array");
+  }
+
+  return raw.map((r: ExaRawResult) => ({
+    title: typeof r.title === "string" ? r.title : "",
+    url: typeof r.url === "string" ? r.url : "",
+    snippet: typeof r.text === "string" ? r.text : "",
+    publishedDate: typeof r.publishedDate === "string" ? r.publishedDate : undefined,
+  }));
+}
+
 export async function searchExa(query: string, options: ExaSearchOptions): Promise<ExaSearchResult[]> {
   if (options.apiKey === null) {
     throw new Error(
@@ -54,16 +83,7 @@ export async function searchExa(query: string, options: ExaSearchOptions): Promi
   }
 
   const data = await response.json();
-  const results: ExaSearchResult[] = (data.results ?? []).map(
-    (r: { title?: string; url?: string; text?: string; publishedDate?: string }) => ({
-      title: r.title ?? "",
-      url: r.url ?? "",
-      snippet: r.text ?? "",
-      publishedDate: r.publishedDate,
-    })
-  );
-
-  return results;
+  return parseExaResults(data);
 }
 
 export function formatSearchResults(results: ExaSearchResult[]): string {
