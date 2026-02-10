@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
-  mode: "oversize" as "oversize" | "clone-fail" | "clone-throw",
+  mode: "oversize" as "oversize" | "clone-fail" | "clone-throw" | "content-throw",
   rmSync: vi.fn(),
 }));
 
@@ -21,8 +21,13 @@ vi.mock("node:fs", async () => {
   return {
     ...actual,
     rmSync: state.rmSync,
-    existsSync: vi.fn(() => false),
-    statSync: vi.fn(),
+    existsSync: vi.fn(() => state.mode === "content-throw"),
+    statSync: vi.fn(() => {
+      if (state.mode === "content-throw") {
+        throw new Error("stat exploded");
+      }
+      return { isDirectory: () => false, size: 0 };
+    }),
     readdirSync: vi.fn(() => []),
     readFileSync: vi.fn(() => ""),
     openSync: vi.fn(),
@@ -104,6 +109,24 @@ describe("extractGitHub clone behavior", () => {
     await expect(extractGitHub("https://github.com/owner/repo")).resolves.toBeNull();
 
     const expectedPath = "/tmp/pi-github-repos-test/owner/repo";
+    const expectedOptions = { recursive: true, force: true };
+    const matchingCalls = state.rmSync.mock.calls.filter(
+      ([path, options]) => path === expectedPath && JSON.stringify(options) === JSON.stringify(expectedOptions)
+    );
+
+    expect(matchingCalls.length).toBeGreaterThan(1);
+
+    clearCloneCache();
+  });
+
+  it("cleans up when content generation fails after a successful clone", async () => {
+    state.mode = "content-throw";
+
+    const { extractGitHub, clearCloneCache } = await import("./github-extract.js");
+
+    await expect(extractGitHub("https://github.com/owner/repo/blob/main/README.md")).resolves.toBeNull();
+
+    const expectedPath = "/tmp/pi-github-repos-test/owner/repo@main";
     const expectedOptions = { recursive: true, force: true };
     const matchingCalls = state.rmSync.mock.calls.filter(
       ([path, options]) => path === expectedPath && JSON.stringify(options) === JSON.stringify(expectedOptions)

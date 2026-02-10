@@ -511,6 +511,7 @@ export async function extractGitHub(
   cloneCache.set(key, { localPath, clonePromise });
 
   let result: string | null = null;
+  let keepClone = false;
   try {
     result = await clonePromise;
 
@@ -520,11 +521,12 @@ export async function extractGitHub(
 
     const content = generateContent(result, info);
     const title = info.path ? `${owner}/${repo} - ${info.path}` : `${owner}/${repo}`;
+    keepClone = true;
     return { url, title, content, error: null };
   } catch {
     return null;
   } finally {
-    if (!result) {
+    if (!keepClone) {
       cloneCache.delete(key);
       try {
         rmSync(localPath, { recursive: true, force: true });
