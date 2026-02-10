@@ -1,6 +1,6 @@
 # @coctostan/pi-exa-gh-web-tools
 
-![Pi Web Tools Banner](https://raw.githubusercontent.com/coctostan/pi-exa-gh-web-tools/main/assets/banner-v2.jpg)
+![Pi Web Tools Banner](https://raw.githubusercontent.com/coctostan/pi-exa-gh-web-tools/main/assets/banner-v3.jpg)
 
 Web search via Exa, content extraction (Readability + Jina fallback), and GitHub repo cloning for the Pi coding agent.
 
