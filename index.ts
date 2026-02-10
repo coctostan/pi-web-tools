@@ -5,6 +5,7 @@ import { searchExa, formatSearchResults } from "./exa-search.js";
 import { extractContent, fetchAllContent } from "./extract.js";
 import { extractGitHub, clearCloneCache, parseGitHubUrl } from "./github-extract.js";
 import { getConfig, resetConfigCache } from "./config.js";
+import { dedupeUrls, normalizeFetchContentInput, normalizeWebSearchInput } from "./tool-params.js";
 import {
   generateId,
   storeResult,
@@ -20,10 +21,6 @@ import {
 const MAX_INLINE_CONTENT = 30000;
 const pendingFetches = new Map<string, AbortController>();
 let sessionActive = false;
-
-export function dedupeUrls(urls: string[]): string[] {
-  return [...new Set(urls)];
-}
 
 // ---------------------------------------------------------------------------
 // Session event handlers
@@ -112,12 +109,7 @@ export default function (pi: ExtensionAPI) {
     parameters: WebSearchParams,
 
     async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
-      const { query, queries, numResults } = params;
-      const queryList = queries ?? (query ? [query] : []);
-
-      if (queryList.length === 0) {
-        throw new Error("Either 'query' or 'queries' must be provided.");
-      }
+      const { queries: queryList, numResults } = normalizeWebSearchInput(params);
 
       const config = getConfig();
       const abortController = new AbortController();
@@ -263,14 +255,7 @@ export default function (pi: ExtensionAPI) {
     parameters: FetchContentParams,
 
     async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
-      const { url, urls, forceClone } = params;
-      const urlList = urls ?? (url ? [url] : []);
-
-      if (urlList.length === 0) {
-        throw new Error("Either 'url' or 'urls' must be provided.");
-      }
-
-      const dedupedUrls = dedupeUrls(urlList);
+      const { urls: dedupedUrls, forceClone } = normalizeFetchContentInput(params);
 
       const abortController = new AbortController();
       const fetchId = generateId();
