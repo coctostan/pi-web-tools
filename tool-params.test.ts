@@ -14,6 +14,61 @@ describe("tool-params", () => {
     expect(normalizeWebSearchInput({ query: "x" }).queries).toEqual(["x"]);
   });
 
+  it("normalizeWebSearchInput passes through type when valid", () => {
+    const result = normalizeWebSearchInput({ query: "x", type: "deep" });
+    expect(result.type).toBe("deep");
+  });
+
+  it("normalizeWebSearchInput defaults type to undefined", () => {
+    const result = normalizeWebSearchInput({ query: "x" });
+    expect(result.type).toBeUndefined();
+  });
+
+  it("normalizeWebSearchInput ignores invalid type", () => {
+    const result = normalizeWebSearchInput({ query: "x", type: "invalid" });
+    expect(result.type).toBeUndefined();
+  });
+
+  it("normalizeWebSearchInput passes through category when valid", () => {
+    const result = normalizeWebSearchInput({ query: "x", category: "news" });
+    expect(result.category).toBe("news");
+  });
+
+  it("normalizeWebSearchInput defaults category to undefined", () => {
+    const result = normalizeWebSearchInput({ query: "x" });
+    expect(result.category).toBeUndefined();
+  });
+
+  it("normalizeWebSearchInput ignores invalid category", () => {
+    const result = normalizeWebSearchInput({ query: "x", category: 123 });
+    expect(result.category).toBeUndefined();
+  });
+
+  it("normalizeWebSearchInput ignores invalid string category", () => {
+    const result = normalizeWebSearchInput({ query: "x", category: "not-a-real-category" });
+    expect(result.category).toBeUndefined();
+  });
+
+  it("normalizeWebSearchInput passes through includeDomains array", () => {
+    const result = normalizeWebSearchInput({ query: "x", includeDomains: ["github.com"] });
+    expect(result.includeDomains).toEqual(["github.com"]);
+  });
+
+  it("normalizeWebSearchInput filters non-string entries from domain arrays", () => {
+    const result = normalizeWebSearchInput({ query: "x", includeDomains: ["a.com", 123, null] });
+    expect(result.includeDomains).toEqual(["a.com"]);
+  });
+
+  it("normalizeWebSearchInput passes through excludeDomains array", () => {
+    const result = normalizeWebSearchInput({ query: "x", excludeDomains: ["pinterest.com"] });
+    expect(result.excludeDomains).toEqual(["pinterest.com"]);
+  });
+
+  it("normalizeWebSearchInput filters non-string entries from excludeDomains", () => {
+    const result = normalizeWebSearchInput({ query: "x", excludeDomains: ["b.com", 42, null] });
+    expect(result.excludeDomains).toEqual(["b.com"]);
+  });
+
   it("normalizeFetchContentInput accepts urls array and dedupes", () => {
     expect(normalizeFetchContentInput({ urls: ["u1", "u1", "u2"] }).urls).toEqual(["u1", "u2"]);
   });
