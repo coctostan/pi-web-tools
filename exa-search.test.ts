@@ -78,7 +78,7 @@ describe("exa-search", () => {
       const body = JSON.parse(init.body);
       expect(body.query).toBe("test query");
       expect(body.numResults).toBe(5); // default
-      expect(body.contents).toEqual({ text: { maxCharacters: 1000 } });
+      expect(body.contents).toEqual({ highlights: { numSentences: 3, highlightsPerUrl: 3 } });
     });
 
     it("handles API errors with status code in message", async () => {
@@ -140,6 +140,107 @@ describe("exa-search", () => {
         snippet: "Text content of result two.",
         publishedDate: undefined,
       });
+    });
+
+    it("sends type parameter when provided", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+
+      await searchExa("test", { apiKey: "key", type: "deep" });
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.type).toBe("deep");
+    });
+
+    it("maps type 'auto' to omitting type from body", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+
+      await searchExa("test", { apiKey: "key", type: "auto" });
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.type).toBeUndefined();
+    });
+
+    it("passes through instant and deep type values", async () => {
+      // "instant" -> instant
+      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ results: [] }) });
+      await searchExa("test", { apiKey: "key", type: "instant" });
+      let body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.type).toBe("instant");
+
+      // "deep" -> deep
+      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ results: [] }) });
+      await searchExa("test", { apiKey: "key", type: "deep" });
+      body = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(body.type).toBe("deep");
+    });
+
+    it("sends category parameter when provided", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+
+      await searchExa("test", { apiKey: "key", category: "news" });
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.category).toBe("news");
+    });
+
+    it("sends includeDomains and excludeDomains when provided", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+
+      await searchExa("test", {
+        apiKey: "key",
+        includeDomains: ["github.com"],
+        excludeDomains: ["pinterest.com"],
+      });
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.includeDomains).toEqual(["github.com"]);
+      expect(body.excludeDomains).toEqual(["pinterest.com"]);
+    });
+
+    it("uses highlights content mode with numSentences 3 and highlightsPerUrl 3", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+
+      await searchExa("test", { apiKey: "key" });
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.contents).toEqual({ highlights: { numSentences: 3, highlightsPerUrl: 3 } });
+      expect(body.contents.text).toBeUndefined();
+    });
+
+    it("parses highlights response into snippet", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          results: [
+            {
+              title: "Highlights Result",
+              url: "https://example.com",
+              highlights: ["First highlight.", "Second highlight."],
+              publishedDate: "2025-01-01",
+            },
+          ],
+        }),
+      });
+
+      const results = await searchExa("test", { apiKey: "key" });
+      expect(results).toHaveLength(1);
+      expect(results[0].snippet).toBe("First highlight. Second highlight.");
+      expect(results[0].title).toBe("Highlights Result");
     });
 
     it("throws a friendly error for malformed Exa responses", async () => {
