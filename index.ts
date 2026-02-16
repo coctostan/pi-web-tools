@@ -5,7 +5,12 @@ import { searchExa, formatSearchResults } from "./exa-search.js";
 import { extractContent, fetchAllContent } from "./extract.js";
 import { extractGitHub, clearCloneCache, parseGitHubUrl } from "./github-extract.js";
 import { getConfig, resetConfigCache } from "./config.js";
-import { normalizeFetchContentInput, normalizeWebSearchInput } from "./tool-params.js";
+import { searchContext } from "./exa-context.js";
+import {
+  normalizeFetchContentInput,
+  normalizeWebSearchInput,
+  normalizeCodeSearchInput,
+} from "./tool-params.js";
 import {
   generateId,
   storeResult,
@@ -16,6 +21,7 @@ import {
   type StoredResultData,
   type QueryResultData,
   type ExtractedContent,
+  type ContextResultData,
 } from "./storage.js";
 
 const MAX_INLINE_CONTENT = 30000;
@@ -89,6 +95,11 @@ const GetSearchContentParams = Type.Object({
   urlIndex: Type.Optional(Type.Number({ description: "Get content for URL at index" })),
 });
 
+const CodeSearchParams = Type.Object({
+  query: Type.String({ description: "Describe what code you need" }),
+  tokensNum: Type.Optional(Type.Number({ description: "Response size in tokens (default: auto, range: 50-100000)" })),
+});
+
 // ---------------------------------------------------------------------------
 // Extension entry point
 // ---------------------------------------------------------------------------
@@ -115,10 +126,13 @@ export default function (pi: ExtensionAPI) {
     handleSessionShutdown();
   });
 
+  const registrationConfig = getConfig();
+
   // -------------------------------------------------------------------------
   // Tool 1: web_search
   // -------------------------------------------------------------------------
-  pi.registerTool({
+  if (registrationConfig.tools.web_search) {
+    pi.registerTool({
     name: "web_search",
     label: "Web Search",
     description:
@@ -263,12 +277,14 @@ export default function (pi: ExtensionAPI) {
 
       return new Text(text, 0, 0);
     },
-  });
+    });
+  }
 
   // -------------------------------------------------------------------------
   // Tool 2: fetch_content
   // -------------------------------------------------------------------------
-  pi.registerTool({
+  if (registrationConfig.tools.fetch_content) {
+    pi.registerTool({
     name: "fetch_content",
     label: "Fetch Content",
     description:
@@ -432,16 +448,138 @@ export default function (pi: ExtensionAPI) {
 
       return new Text(text || theme.fg("success", "Done"), 0, 0);
     },
-  });
+    });
+  }
 
   // -------------------------------------------------------------------------
   // Tool 3: get_search_content
   // -------------------------------------------------------------------------
-  pi.registerTool({
+  if (registrationConfig.tools.code_search) {
+    pi.registerTool({
+      name: "code_search",
+      label: "Code Search",
+      description:
+        "Search GitHub repos, documentation, and Stack Overflow for working code examples. Use for framework usage, API syntax, library patterns, and setup recipes. Returns formatted code snippets, not web pages.",
+      parameters: CodeSearchParams,
+
+      async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
+        const { query, tokensNum } = normalizeCodeSearchInput(params);
+
+        const config = getConfig();
+        const abortController = new AbortController();
+        const fetchId = generateId();
+        pendingFetches.set(fetchId, abortController);
+
+        const combinedSignal = signal
+          ? AbortSignal.any([signal, abortController.signal])
+          : abortController.signal;
+
+        try {
+          const result = await searchContext(query, {
+            apiKey: config.exaApiKey,
+            tokensNum,
+            signal: combinedSignal,
+          });
+
+          const responseId = generateId();
+          const contextData: ContextResultData = {
+            query: result.query,
+            content: result.content,
+            error: null,
+          };
+          const storedData: StoredResultData = {
+            id: responseId,
+            type: "context",
+            timestamp: Date.now(),
+            context: contextData,
+          };
+          storeResult(responseId, storedData);
+          pi.appendEntry("web-tools-results", storedData);
+
+          let text = result.content;
+          let truncated = false;
+          if (text.length > MAX_INLINE_CONTENT) {
+            text = text.slice(0, MAX_INLINE_CONTENT);
+            text += `\n\n[Content truncated. Use get_search_content with responseId "${responseId}" to retrieve full content.]`;
+            truncated = true;
+          }
+
+          return {
+            content: [{ type: "text", text }],
+            details: {
+              responseId,
+              query: result.query,
+              charCount: result.content.length,
+              truncated,
+            },
+          };
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          return {
+            content: [{ type: "text", text: `Error: ${msg}` }],
+            isError: true,
+            details: { query, error: msg },
+          };
+        } finally {
+          pendingFetches.delete(fetchId);
+        }
+      },
+
+      renderCall(args, theme) {
+        let text = theme.fg("toolTitle", theme.bold("code_search "));
+        const queryText = typeof args.query === "string" ? args.query : "";
+        const truncated = queryText.length > 60 ? queryText.slice(0, 60) + "…" : queryText;
+        text += theme.fg("accent", `"${truncated}"`);
+        return new Text(text, 0, 0);
+      },
+
+      renderResult(result, { expanded, isPartial }, theme) {
+        if (result.isError) {
+          const errText = result.content[0];
+          const msg = errText?.type === "text" ? errText.text : "Error";
+          return new Text(theme.fg("error", msg), 0, 0);
+        }
+
+        if (isPartial) {
+          return new Text(theme.fg("warning", "Searching code..."), 0, 0);
+        }
+
+        const details = result.details as {
+          charCount?: number;
+          truncated?: boolean;
+          query?: string;
+        } | undefined;
+
+        let text = theme.fg("success", details?.query ?? "Done");
+        if (details?.charCount !== undefined) {
+          text += theme.fg("dim", ` (${details.charCount} chars)`);
+        }
+        if (details?.truncated) {
+          text += theme.fg("warning", " [truncated]");
+        }
+
+        if (expanded) {
+          const content = result.content[0];
+          if (content?.type === "text") {
+            const preview = content.text.slice(0, 500);
+            text += "\n" + theme.fg("dim", preview);
+            if (content.text.length > 500) {
+              text += theme.fg("muted", "...");
+            }
+          }
+        }
+
+        return new Text(text, 0, 0);
+      },
+    });
+  }
+
+  if (registrationConfig.tools.get_search_content) {
+    pi.registerTool({
     name: "get_search_content",
     label: "Get Content",
     description:
-      "Retrieve full content from a previous web_search or fetch_content result.",
+      "Retrieve full content from a previous web_search, code_search, or fetch_content result.",
     parameters: GetSearchContentParams,
 
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
@@ -570,6 +708,26 @@ export default function (pi: ExtensionAPI) {
         };
       }
 
+      // Handle context results
+      if (stored.type === "context" && stored.context) {
+        const ctx = stored.context;
+        if (ctx.error) {
+          return {
+            content: [{ type: "text", text: `Error: ${ctx.error}` }],
+            details: { type: "context", query: ctx.query, error: ctx.error },
+          };
+        }
+
+        return {
+          content: [{ type: "text", text: ctx.content }],
+          details: {
+            type: "context",
+            query: ctx.query,
+            charCount: ctx.content.length,
+          },
+        };
+      }
+
       throw new Error(`Invalid stored result type for responseId "${responseId}".`);
     },
 
@@ -631,5 +789,6 @@ export default function (pi: ExtensionAPI) {
 
       return new Text(text || theme.fg("success", "Done"), 0, 0);
     },
-  });
+    });
+  }
 }
