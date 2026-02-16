@@ -64,3 +64,20 @@ export function normalizeFetchContentInput(params: { url?: unknown; urls?: unkno
   const forceClone = typeof params.forceClone === "boolean" ? params.forceClone : undefined;
   return { urls: dedupeUrls(urlList), forceClone };
 }
+
+export function normalizeCodeSearchInput(params: {
+  query?: unknown;
+  tokensNum?: unknown;
+}) {
+  const query = typeof params.query === "string" ? params.query : undefined;
+  if (!query) {
+    throw new Error("'query' must be provided.");
+  }
+
+  let tokensNum: number | undefined;
+  if (typeof params.tokensNum === "number" && Number.isFinite(params.tokensNum)) {
+    tokensNum = Math.max(50, Math.min(100000, Math.round(params.tokensNum)));
+  }
+
+  return { query, tokensNum };
+}

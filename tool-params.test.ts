@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeWebSearchInput, normalizeFetchContentInput, dedupeUrls } from "./tool-params.js";
+import { normalizeWebSearchInput, normalizeFetchContentInput, normalizeCodeSearchInput, dedupeUrls } from "./tool-params.js";
 
 describe("tool-params", () => {
   it("dedupeUrls preserves order", () => {
@@ -67,6 +67,31 @@ describe("tool-params", () => {
   it("normalizeWebSearchInput filters non-string entries from excludeDomains", () => {
     const result = normalizeWebSearchInput({ query: "x", excludeDomains: ["b.com", 42, null] });
     expect(result.excludeDomains).toEqual(["b.com"]);
+  });
+
+  it("normalizeCodeSearchInput requires query", () => {
+    expect(() => normalizeCodeSearchInput({})).toThrow(/'query' must be provided/);
+  });
+
+  it("normalizeCodeSearchInput accepts query string", () => {
+    const result = normalizeCodeSearchInput({ query: "react hooks" });
+    expect(result.query).toBe("react hooks");
+    expect(result.tokensNum).toBeUndefined();
+  });
+
+  it("normalizeCodeSearchInput passes through valid tokensNum", () => {
+    const result = normalizeCodeSearchInput({ query: "x", tokensNum: 5000 });
+    expect(result.tokensNum).toBe(5000);
+  });
+
+  it("normalizeCodeSearchInput clamps tokensNum to valid range", () => {
+    expect(normalizeCodeSearchInput({ query: "x", tokensNum: 10 }).tokensNum).toBe(50);
+    expect(normalizeCodeSearchInput({ query: "x", tokensNum: 200000 }).tokensNum).toBe(100000);
+  });
+
+  it("normalizeCodeSearchInput ignores non-number tokensNum", () => {
+    const result = normalizeCodeSearchInput({ query: "x", tokensNum: "big" });
+    expect(result.tokensNum).toBeUndefined();
   });
 
   it("normalizeFetchContentInput accepts urls array and dedupes", () => {
