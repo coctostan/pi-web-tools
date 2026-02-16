@@ -12,12 +12,19 @@ export interface QueryResultData {
   error: string | null;
 }
 
+export interface ContextResultData {
+  query: string;
+  content: string;
+  error: string | null;
+}
+
 export interface StoredResultData {
   id: string;
-  type: "search" | "fetch";
+  type: "search" | "fetch" | "context";
   timestamp: number;
   queries?: QueryResultData[];
   urls?: ExtractedContent[];
+  context?: ContextResultData;
 }
 
 interface ExtensionContext {
@@ -86,6 +93,7 @@ export function restoreFromSession(ctx: ExtensionContext): void {
     if (!data || !data.id || !data.type) continue;
     if (data.type === "search" && !Array.isArray(data.queries)) continue;
     if (data.type === "fetch" && !Array.isArray(data.urls)) continue;
+    if (data.type === "context" && (!data.context || typeof data.context.query !== "string")) continue;
 
     // Skip entries older than 1 hour
     if (data.timestamp && now - data.timestamp > ONE_HOUR_MS) continue;
