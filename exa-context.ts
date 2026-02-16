@@ -56,5 +56,9 @@ export async function searchContext(query: string, options: ExaContextOptions): 
   const data = await response.json();
   const content = typeof data?.response === "string" ? data.response : "";
 
+  if (!content) {
+    throw new Error(`Exa Context API returned empty or non-string response for query "${query}"`);
+  }
+
   return { query, content };
 }

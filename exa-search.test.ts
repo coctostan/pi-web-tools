@@ -243,6 +243,26 @@ describe("exa-search", () => {
       expect(results[0].title).toBe("Highlights Result");
     });
 
+    it("falls back to text when highlights array has no valid strings", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          results: [
+            {
+              title: "Fallback Result",
+              url: "https://example.com",
+              highlights: [123, null, {}],
+              text: "Fallback text content.",
+            },
+          ],
+        }),
+      });
+
+      const results = await searchExa("test", { apiKey: "key" });
+      expect(results).toHaveLength(1);
+      expect(results[0].snippet).toBe("Fallback text content.");
+    });
+
     it("throws a friendly error for malformed Exa responses", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,

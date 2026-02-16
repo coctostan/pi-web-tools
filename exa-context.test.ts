@@ -78,4 +78,14 @@ describe("exa-context", () => {
     await expect(searchContext("my code query", { apiKey: "key" }))
       .rejects.toThrow(/Context request failed.*my code query/i);
   });
+
+  it("throws when API returns non-string response", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ response: null }),
+    });
+
+    await expect(searchContext("test", { apiKey: "key" }))
+      .rejects.toThrow(/empty or non-string/i);
+  });
 });

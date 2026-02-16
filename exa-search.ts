@@ -50,9 +50,13 @@ function parseExaResults(data: unknown): ExaSearchResult[] {
     return {
       title: typeof r.title === "string" ? r.title : "",
       url: typeof r.url === "string" ? r.url : "",
-      snippet: Array.isArray(r.highlights)
-        ? r.highlights.filter((h): h is string => typeof h === "string").join(" ")
-        : typeof r.text === "string" ? r.text : "",
+      snippet: (() => {
+        if (Array.isArray(r.highlights)) {
+          const joined = r.highlights.filter((h): h is string => typeof h === "string").join(" ");
+          if (joined) return joined;
+        }
+        return typeof r.text === "string" ? r.text : "";
+      })(),
       publishedDate: typeof r.publishedDate === "string" ? r.publishedDate : undefined,
     };
   });
