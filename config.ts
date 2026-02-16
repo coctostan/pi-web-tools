@@ -10,9 +10,17 @@ export interface GitHubConfig {
   clonePath: string;
 }
 
+export interface ToolToggles {
+  web_search: boolean;
+  code_search: boolean;
+  fetch_content: boolean;
+  get_search_content: boolean;
+}
+
 export interface WebToolsConfig {
   exaApiKey: string | null;
   github: GitHubConfig;
+  tools: ToolToggles;
 }
 
 const DEFAULT_CONFIG: WebToolsConfig = {
@@ -21,6 +29,12 @@ const DEFAULT_CONFIG: WebToolsConfig = {
     maxRepoSizeMB: 350,
     cloneTimeoutSeconds: 30,
     clonePath: "/tmp/pi-github-repos",
+  },
+  tools: {
+    web_search: true,
+    code_search: true,
+    fetch_content: true,
+    get_search_content: true,
   },
 };
 
@@ -73,7 +87,23 @@ function buildConfig(): WebToolsConfig {
     exaApiKey = DEFAULT_CONFIG.exaApiKey;
   }
 
-  return { exaApiKey, github };
+  const fileTools = (file["tools"] && typeof file["tools"] === "object" && !Array.isArray(file["tools"]))
+    ? file["tools"] as Record<string, unknown>
+    : {};
+
+  const tools: ToolToggles = {
+    web_search: typeof fileTools["web_search"] === "boolean" ? fileTools["web_search"] : DEFAULT_CONFIG.tools.web_search,
+    code_search: typeof fileTools["code_search"] === "boolean" ? fileTools["code_search"] : DEFAULT_CONFIG.tools.code_search,
+    fetch_content: typeof fileTools["fetch_content"] === "boolean" ? fileTools["fetch_content"] : DEFAULT_CONFIG.tools.fetch_content,
+    get_search_content: typeof fileTools["get_search_content"] === "boolean" ? fileTools["get_search_content"] : DEFAULT_CONFIG.tools.get_search_content,
+  };
+
+  // Auto-disable get_search_content if both search tools are off
+  if (!tools.web_search && !tools.code_search) {
+    tools.get_search_content = false;
+  }
+
+  return { exaApiKey, github, tools };
 }
 
 export function getConfig(): WebToolsConfig {

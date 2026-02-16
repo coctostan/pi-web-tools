@@ -118,4 +118,44 @@ describe("config", () => {
     expect(config.github.cloneTimeoutSeconds).toBe(30);
     expect(config.github.clonePath).toBe("/tmp/pi-github-repos");
   });
+
+  it("defaults all tools to true when tools block is missing", () => {
+    writeFileSync(configPath, JSON.stringify({}));
+    resetConfigCache();
+    const config = getConfig();
+    expect(config.tools.web_search).toBe(true);
+    expect(config.tools.code_search).toBe(true);
+    expect(config.tools.fetch_content).toBe(true);
+    expect(config.tools.get_search_content).toBe(true);
+  });
+
+  it("respects explicit tool toggle values", () => {
+    writeFileSync(configPath, JSON.stringify({
+      tools: { web_search: false, fetch_content: false }
+    }));
+    resetConfigCache();
+    const config = getConfig();
+    expect(config.tools.web_search).toBe(false);
+    expect(config.tools.code_search).toBe(true);
+    expect(config.tools.fetch_content).toBe(false);
+    expect(config.tools.get_search_content).toBe(true);
+  });
+
+  it("auto-disables get_search_content when both web_search and code_search are disabled", () => {
+    writeFileSync(configPath, JSON.stringify({
+      tools: { web_search: false, code_search: false, get_search_content: true }
+    }));
+    resetConfigCache();
+    const config = getConfig();
+    expect(config.tools.get_search_content).toBe(false);
+  });
+
+  it("keeps get_search_content enabled when at least one search tool is on", () => {
+    writeFileSync(configPath, JSON.stringify({
+      tools: { web_search: false, code_search: true }
+    }));
+    resetConfigCache();
+    const config = getConfig();
+    expect(config.tools.get_search_content).toBe(true);
+  });
 });
