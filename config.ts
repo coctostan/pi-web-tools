@@ -98,8 +98,8 @@ function buildConfig(): WebToolsConfig {
     get_search_content: typeof fileTools["get_search_content"] === "boolean" ? fileTools["get_search_content"] : DEFAULT_CONFIG.tools.get_search_content,
   };
 
-  // Auto-disable get_search_content if both search tools are off
-  if (!tools.web_search && !tools.code_search) {
+  // Auto-disable get_search_content if all content-producing tools are off
+  if (!tools.web_search && !tools.code_search && !tools.fetch_content) {
     tools.get_search_content = false;
   }
 

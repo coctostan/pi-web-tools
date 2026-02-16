@@ -452,7 +452,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   // -------------------------------------------------------------------------
-  // Tool 3: get_search_content
+  // Tool 3: code_search
   // -------------------------------------------------------------------------
   if (registrationConfig.tools.code_search) {
     pi.registerTool({
@@ -574,6 +574,9 @@ export default function (pi: ExtensionAPI) {
     });
   }
 
+  // -------------------------------------------------------------------------
+  // Tool 4: get_search_content
+  // -------------------------------------------------------------------------
   if (registrationConfig.tools.get_search_content) {
     pi.registerTool({
     name: "get_search_content",

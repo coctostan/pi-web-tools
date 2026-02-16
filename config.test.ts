@@ -141,13 +141,13 @@ describe("config", () => {
     expect(config.tools.get_search_content).toBe(true);
   });
 
-  it("auto-disables get_search_content when both web_search and code_search are disabled", () => {
+  it("keeps get_search_content when search tools off but fetch_content on", () => {
     writeFileSync(configPath, JSON.stringify({
       tools: { web_search: false, code_search: false, get_search_content: true }
     }));
     resetConfigCache();
     const config = getConfig();
-    expect(config.tools.get_search_content).toBe(false);
+    expect(config.tools.get_search_content).toBe(true);
   });
 
   it("keeps get_search_content enabled when at least one search tool is on", () => {
@@ -157,5 +157,23 @@ describe("config", () => {
     resetConfigCache();
     const config = getConfig();
     expect(config.tools.get_search_content).toBe(true);
+  });
+
+  it("keeps get_search_content enabled when only fetch_content is on", () => {
+    writeFileSync(configPath, JSON.stringify({
+      tools: { web_search: false, code_search: false, fetch_content: true }
+    }));
+    resetConfigCache();
+    const config = getConfig();
+    expect(config.tools.get_search_content).toBe(true);
+  });
+
+  it("auto-disables get_search_content only when all content tools are disabled", () => {
+    writeFileSync(configPath, JSON.stringify({
+      tools: { web_search: false, code_search: false, fetch_content: false, get_search_content: true }
+    }));
+    resetConfigCache();
+    const config = getConfig();
+    expect(config.tools.get_search_content).toBe(false);
   });
 });
