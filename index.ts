@@ -56,6 +56,23 @@ const WebSearchParams = Type.Object({
   query: Type.Optional(Type.String({ description: "Single search query" })),
   queries: Type.Optional(Type.Array(Type.String(), { description: "Multiple queries (batch)" })),
   numResults: Type.Optional(Type.Number({ description: "Results per query (default: 5, max: 20)" })),
+  type: Type.Optional(Type.Union([
+    Type.Literal("auto"),
+    Type.Literal("instant"),
+    Type.Literal("deep"),
+  ], { description: 'Search type: "auto" (default, highest quality), "instant" (sub-150ms), "deep" (comprehensive research)' })),
+  category: Type.Optional(Type.Union([
+    Type.Literal("company"),
+    Type.Literal("research paper"),
+    Type.Literal("news"),
+    Type.Literal("tweet"),
+    Type.Literal("people"),
+    Type.Literal("personal site"),
+    Type.Literal("financial report"),
+    Type.Literal("pdf"),
+  ], { description: "Filter by content category" })),
+  includeDomains: Type.Optional(Type.Array(Type.String(), { description: 'Only include these domains (e.g. ["github.com"])' })),
+  excludeDomains: Type.Optional(Type.Array(Type.String(), { description: 'Exclude these domains (e.g. ["pinterest.com"])' })),
 });
 
 const FetchContentParams = Type.Object({
@@ -105,11 +122,11 @@ export default function (pi: ExtensionAPI) {
     name: "web_search",
     label: "Web Search",
     description:
-      "Search the web using Exa. Returns results with snippets and source URLs. Supports batch searching with multiple queries.",
+      "Search the web for pages matching a query. Returns highlights (short relevant excerpts), not full page content. Use `fetch_content` to read a page in full. Supports batch searching with multiple queries.",
     parameters: WebSearchParams,
 
     async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
-      const { queries: queryList, numResults } = normalizeWebSearchInput(params);
+      const { queries: queryList, numResults, type, category, includeDomains, excludeDomains } = normalizeWebSearchInput(params);
 
       const config = getConfig();
       const abortController = new AbortController();
@@ -130,6 +147,10 @@ export default function (pi: ExtensionAPI) {
             const searchResults = await searchExa(q, {
               apiKey: config.exaApiKey,
               numResults: numResults !== undefined ? Math.max(1, Math.min(numResults, 20)) : 5,
+              type,
+              category,
+              includeDomains,
+              excludeDomains,
               signal: combinedSignal,
             });
             const formatted = formatSearchResults(searchResults);
