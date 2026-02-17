@@ -2,7 +2,21 @@ export function dedupeUrls(urls: string[]): string[] {
   return [...new Set(urls)];
 }
 
-export function normalizeWebSearchInput(params: { query?: unknown; queries?: unknown; numResults?: unknown }) {
+const VALID_SEARCH_TYPES = new Set(["auto", "instant", "deep"]);
+const VALID_CATEGORIES = new Set([
+  "company", "research paper", "news", "tweet",
+  "people", "personal site", "financial report", "pdf",
+]);
+
+export function normalizeWebSearchInput(params: {
+  query?: unknown;
+  queries?: unknown;
+  numResults?: unknown;
+  type?: unknown;
+  category?: unknown;
+  includeDomains?: unknown;
+  excludeDomains?: unknown;
+}) {
   const query = typeof params.query === "string" ? params.query : undefined;
   const queries = Array.isArray(params.queries)
     ? params.queries.filter((q): q is string => typeof q === "string")
@@ -17,7 +31,23 @@ export function normalizeWebSearchInput(params: { query?: unknown; queries?: unk
     ? params.numResults
     : undefined;
 
-  return { queries: queryList, numResults };
+  const type = typeof params.type === "string" && VALID_SEARCH_TYPES.has(params.type)
+    ? params.type as "auto" | "instant" | "deep"
+    : undefined;
+
+  const category = typeof params.category === "string" && VALID_CATEGORIES.has(params.category)
+    ? params.category
+    : undefined;
+
+  const includeDomains = Array.isArray(params.includeDomains)
+    ? params.includeDomains.filter((d): d is string => typeof d === "string")
+    : undefined;
+
+  const excludeDomains = Array.isArray(params.excludeDomains)
+    ? params.excludeDomains.filter((d): d is string => typeof d === "string")
+    : undefined;
+
+  return { queries: queryList, numResults, type, category, includeDomains, excludeDomains };
 }
 
 export function normalizeFetchContentInput(params: { url?: unknown; urls?: unknown; forceClone?: unknown }) {
@@ -33,4 +63,21 @@ export function normalizeFetchContentInput(params: { url?: unknown; urls?: unkno
 
   const forceClone = typeof params.forceClone === "boolean" ? params.forceClone : undefined;
   return { urls: dedupeUrls(urlList), forceClone };
+}
+
+export function normalizeCodeSearchInput(params: {
+  query?: unknown;
+  tokensNum?: unknown;
+}) {
+  const query = typeof params.query === "string" ? params.query : undefined;
+  if (!query) {
+    throw new Error("'query' must be provided.");
+  }
+
+  let tokensNum: number | undefined;
+  if (typeof params.tokensNum === "number" && Number.isFinite(params.tokensNum)) {
+    tokensNum = Math.max(50, Math.min(100000, Math.round(params.tokensNum)));
+  }
+
+  return { query, tokensNum };
 }

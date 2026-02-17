@@ -8,6 +8,10 @@ export interface ExaSearchResult {
 export interface ExaSearchOptions {
   apiKey: string | null;
   numResults?: number;
+  type?: "auto" | "instant" | "deep";
+  category?: string;
+  includeDomains?: string[];
+  excludeDomains?: string[];
   signal?: AbortSignal;
 }
 
@@ -19,6 +23,7 @@ type ExaRawResult = {
   title?: unknown;
   url?: unknown;
   text?: unknown;
+  highlights?: unknown;
   publishedDate?: unknown;
 };
 
@@ -45,7 +50,13 @@ function parseExaResults(data: unknown): ExaSearchResult[] {
     return {
       title: typeof r.title === "string" ? r.title : "",
       url: typeof r.url === "string" ? r.url : "",
-      snippet: typeof r.text === "string" ? r.text : "",
+      snippet: (() => {
+        if (Array.isArray(r.highlights)) {
+          const joined = r.highlights.filter((h): h is string => typeof h === "string").join(" ");
+          if (joined) return joined;
+        }
+        return typeof r.text === "string" ? r.text : "";
+      })(),
       publishedDate: typeof r.publishedDate === "string" ? r.publishedDate : undefined,
     };
   });
@@ -66,11 +77,27 @@ export async function searchExa(query: string, options: ExaSearchOptions): Promi
   }
   const signal = AbortSignal.any(signals);
 
-  const body = JSON.stringify({
+  const requestBody: Record<string, unknown> = {
     query,
     numResults,
-    contents: { text: { maxCharacters: 1000 } },
-  });
+    contents: { highlights: { numSentences: 3, highlightsPerUrl: 3 } },
+  };
+
+  // Pass type through directly; "auto" -> omit (Exa default)
+  if (options.type && options.type !== "auto") {
+    requestBody.type = options.type;
+  }
+  if (options.category) {
+    requestBody.category = options.category;
+  }
+  if (options.includeDomains && options.includeDomains.length > 0) {
+    requestBody.includeDomains = options.includeDomains;
+  }
+  if (options.excludeDomains && options.excludeDomains.length > 0) {
+    requestBody.excludeDomains = options.excludeDomains;
+  }
+
+  const body = JSON.stringify(requestBody);
 
   let response: Response;
   try {
