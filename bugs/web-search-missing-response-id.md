@@ -71,3 +71,9 @@ Also: the `details` field uses `searchId` while `get_search_content` expects `re
 - `index.ts` — `web_search` tool handler (~line 194–224)
 - `index.ts` — `get_search_content` tool handler
 - `storage.ts` — `storeResult` / `getResult`
+
+## Resolution
+
+Fixed in branch `fix/web-search-missing-response-id`:
+- Added `responseId` to `web_search` text output with retrieval hint
+- Renamed `searchId` → `responseId` in details object for consistency
