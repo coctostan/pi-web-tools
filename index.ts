@@ -212,6 +212,7 @@ export default function (pi: ExtensionAPI) {
           }
           textParts.push("");
         }
+        textParts.push(`Use get_search_content with responseId "${searchId}" and query/queryIndex to retrieve full content.`);
 
         return {
           content: [{ type: "text", text: textParts.join("\n") }],
@@ -219,7 +220,7 @@ export default function (pi: ExtensionAPI) {
             queryCount: queryList.length,
             successfulQueries,
             totalResults,
-            searchId,
+            responseId: searchId,
           },
         };
       } finally {
