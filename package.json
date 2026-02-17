@@ -1,6 +1,6 @@
 {
   "name": "@coctostan/pi-exa-gh-web-tools",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Web search via Exa, content extraction, and GitHub repo cloning for Pi coding agent",
   "type": "module",
   "keywords": [
