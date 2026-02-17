@@ -14,7 +14,9 @@ function formatWebSearchOutput(
     }
     textParts.push("");
   }
-  // BUG: searchId is NOT included — reproducing the bug
+  textParts.push(
+    `Use get_search_content with responseId "${searchId}" and query/queryIndex to retrieve full content.`
+  );
   return textParts.join("\n");
 }
 
@@ -33,5 +35,7 @@ describe("web_search output formatting", () => {
     const results = [{ query: "bad query", answer: "", error: "API error" }];
     const output = formatWebSearchOutput(results, "xyz789");
     expect(output).toContain("xyz789");
+    expect(output).toContain("get_search_content");
+    expect(output).toContain("responseId");
   });
 });
