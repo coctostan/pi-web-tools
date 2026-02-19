@@ -1,17 +1,25 @@
-import { writeFileSync, unlinkSync } from "node:fs";
+import { writeFileSync, unlinkSync, mkdtempSync, rmdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { randomBytes } from "node:crypto";
 
 export const FILE_OFFLOAD_THRESHOLD = 30_000;
 export const PREVIEW_SIZE = 2_000;
 
 const trackedFiles: Set<string> = new Set();
 
-let idCounter = 0;
+let tempDir: string | null = null;
+
+function ensureTempDir(): string {
+  if (!tempDir) {
+    tempDir = mkdtempSync(join(tmpdir(), "pi-web-"));
+  }
+  return tempDir;
+}
 
 function generateTempPath(): string {
-  const id = Date.now().toString(36) + (idCounter++).toString(36);
-  return join(tmpdir(), `pi-web-${id}.txt`);
+  const id = randomBytes(8).toString("hex");
+  return join(ensureTempDir(), `${id}.txt`);
 }
 
 /**
@@ -27,7 +35,7 @@ export function shouldOffload(content: string): boolean {
  */
 export function offloadToFile(content: string): string {
   const filePath = generateTempPath();
-  writeFileSync(filePath, content, "utf-8");
+  writeFileSync(filePath, content, { encoding: "utf-8", mode: 0o600, flag: "wx" });
   trackedFiles.add(filePath);
   return filePath;
 }
@@ -58,4 +66,13 @@ export function cleanupTempFiles(): void {
     }
   }
   trackedFiles.clear();
+
+  if (tempDir) {
+    try {
+      rmdirSync(tempDir);
+    } catch {
+      // Directory not empty or already removed — ignore
+    }
+    tempDir = null;
+  }
 }

@@ -99,12 +99,7 @@ describe("extract", () => {
     });
 
     it("extracts text from PDF content-type", async () => {
-  // pdf-parse expects a real PDF buffer. We'll mock at the fetch level
-  // and use a minimal valid PDF.
-  const { default: pdfParse } = await import("pdf-parse");
-
-  // Create a minimal PDF buffer that pdf-parse can handle
-  // We'll test the integration by mocking fetch to return a PDF response
+  // Mock fetch to return a PDF response with a minimal valid PDF buffer
   const pdfBuffer = Buffer.from(
     "%PDF-1.0\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n" +
     "2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n" +
