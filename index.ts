@@ -10,7 +10,9 @@ import {
   normalizeFetchContentInput,
   normalizeWebSearchInput,
   normalizeCodeSearchInput,
+  normalizeGetSearchContentInput,
 } from "./tool-params.js";
+import { truncateContent } from "./truncation.js";
 import {
   generateId,
   storeResult,
@@ -93,6 +95,7 @@ const GetSearchContentParams = Type.Object({
   queryIndex: Type.Optional(Type.Number({ description: "Get content for query at index" })),
   url: Type.Optional(Type.String({ description: "Get content for this URL" })),
   urlIndex: Type.Optional(Type.Number({ description: "Get content for URL at index" })),
+  maxChars: Type.Optional(Type.Number({ description: "Maximum characters to return (default: 30000, max: 100000)" })),
 });
 
 const CodeSearchParams = Type.Object({
@@ -587,7 +590,7 @@ export default function (pi: ExtensionAPI) {
     parameters: GetSearchContentParams,
 
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
-      const { responseId, query, queryIndex, url, urlIndex } = params;
+      const { responseId, query, queryIndex, url, urlIndex, maxChars } = normalizeGetSearchContentInput(params);
 
       const stored = getResult(responseId);
       if (!stored) {
@@ -628,7 +631,7 @@ export default function (pi: ExtensionAPI) {
             lines.push("");
           }
           return {
-            content: [{ type: "text", text: lines.join("\n") }],
+            content: [{ type: "text", text: truncateContent(lines.join("\n"), maxChars) }],
             details: { type: "search", queryCount: stored.queries.length },
           };
         }
@@ -639,6 +642,7 @@ export default function (pi: ExtensionAPI) {
         } else {
           text += targetQuery.answer;
         }
+        text = truncateContent(text, maxChars);
 
         return {
           content: [{ type: "text", text }],
@@ -686,7 +690,7 @@ export default function (pi: ExtensionAPI) {
           lines.push("");
           lines.push("Specify url or urlIndex to retrieve full content.");
           return {
-            content: [{ type: "text", text: lines.join("\n") }],
+            content: [{ type: "text", text: truncateContent(lines.join("\n"), maxChars) }],
             details: { type: "fetch", urlCount: stored.urls.length },
           };
         }
@@ -700,7 +704,7 @@ export default function (pi: ExtensionAPI) {
           };
         }
 
-        const text = `# ${targetContent.title}\n\n${targetContent.content}`;
+        const text = truncateContent(`# ${targetContent.title}\n\n${targetContent.content}`, maxChars);
         return {
           content: [{ type: "text", text }],
           details: {
@@ -723,7 +727,7 @@ export default function (pi: ExtensionAPI) {
         }
 
         return {
-          content: [{ type: "text", text: ctx.content }],
+          content: [{ type: "text", text: truncateContent(ctx.content, maxChars) }],
           details: {
             type: "context",
             query: ctx.query,
