@@ -13,6 +13,7 @@ import {
   normalizeGetSearchContentInput,
 } from "./tool-params.js";
 import { truncateContent } from "./truncation.js";
+import { shouldOffload, offloadToFile, buildOffloadResult, cleanupTempFiles } from "./offload.js";
 import {
   generateId,
   storeResult,
@@ -44,6 +45,7 @@ function abortAllPending(): void {
 function handleSessionStart(ctx: ExtensionContext): void {
   abortAllPending();
   clearCloneCache();
+  cleanupTempFiles();
   sessionActive = true;
   restoreFromSession(ctx);
 }
@@ -54,6 +56,7 @@ function handleSessionShutdown(): void {
   clearCloneCache();
   clearResults();
   resetConfigCache();
+  cleanupTempFiles();
 }
 
 // ---------------------------------------------------------------------------
@@ -127,6 +130,28 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_shutdown", async () => {
     handleSessionShutdown();
+  });
+
+  // Tool result interception — offload large content to temp files
+  pi.on("tool_result", async (event) => {
+    // Only intercept our own tools
+    const ourTools = new Set(["web_search", "fetch_content", "code_search", "get_search_content"]);
+    if (!ourTools.has(event.toolName)) return;
+    if (event.isError) return;
+
+    // Check if any text content exceeds threshold
+    const textContent = event.content.find(
+      (c): c is { type: "text"; text: string } => c.type === "text"
+    );
+    if (!textContent || !shouldOffload(textContent.text)) return;
+
+    // Offload to file
+    const filePath = offloadToFile(textContent.text);
+    const replacement = buildOffloadResult(textContent.text, filePath);
+
+    return {
+      content: [{ type: "text" as const, text: replacement }],
+    };
   });
 
   const registrationConfig = getConfig();
