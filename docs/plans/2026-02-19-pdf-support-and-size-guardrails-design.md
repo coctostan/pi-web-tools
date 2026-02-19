@@ -72,9 +72,51 @@ const DEFAULT_GET_CONTENT_MAX_CHARS = 30_000
 const MAX_GET_CONTENT_CHARS = 100_000
 ```
 
-### 6. Out of Scope
+### 6. Dynamic Filtering via `tool_result` Interception
 
-- Dynamic filtering (requires code execution — separate design)
+Inspired by [Anthropic's programmatic tool calling](https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling) and their [context engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) guidance. The core insight: large content should never enter the LLM context directly. Instead, it goes to disk and the model uses `bash` to filter/extract only what it needs.
+
+**Mechanism**: Add a `tool_result` event handler in pi-web-tools for `fetch_content` and `get_search_content`. When the result content exceeds a threshold:
+
+1. Write full content to a temp file (e.g. `/tmp/pi-web-<id>.txt`)
+2. Replace the tool result with:
+   - First ~2KB as a **preview** (so the model has context about what it fetched)
+   - File path + total size
+   - Hint: `"Full content saved to {path} ({size}). Use bash to search/filter."`
+3. Under threshold: pass through unchanged — no overhead for small results
+
+**Why this works**: Pi's model already has `bash`. When it sees "600KB saved to /tmp/pi-web-abc123.txt", it naturally does:
+```bash
+grep -i 'quarterly revenue' /tmp/pi-web-abc123.txt
+```
+Only the grep output enters context — same utility as Anthropic's sandbox approach.
+
+**New constants**:
+```typescript
+const FILE_OFFLOAD_THRESHOLD = 30_000  // chars — content above this goes to file
+const PREVIEW_SIZE = 2_000             // chars — preview included in tool result
+```
+
+**Temp file cleanup**: Files cleaned up on `session_shutdown`.
+
+**Testing** (`index.test.ts`):
+- Content over threshold → verify file written, result replaced with preview + path
+- Content under threshold → verify pass-through unchanged
+- Session shutdown → verify temp files cleaned up
+- Model can bash over the saved file and get expected output
+
+**Files changed** (in addition to section 4):
+
+| File | Change |
+|------|--------|
+| `index.ts` | `tool_result` event handler for offloading, temp file management, cleanup on shutdown |
+| `index.test.ts` | File offload tests |
+
+### 7. What This Doesn't Cover (and Why)
+
+**Multi-tool-loop-without-sampling**: Anthropic's programmatic tool calling also lets the model call multiple tools in a for-loop without re-sampling between each call. This would require pi core changes (a `executeTool()` API in the extension system + IPC with a subprocess). This is an **efficiency optimization** (fewer round trips), not a **context protection** problem. YAGNI for now — would be a separate pi core feature request if needed.
+
+**Also out of scope**:
 - Layout-aware PDF parsing
 - OCR for scanned PDFs
 - Changes to `fetch_content` inline truncation (already works at 30KB)
