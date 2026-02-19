@@ -98,6 +98,89 @@ describe("extract", () => {
       expect(result.error).toContain("404");
     });
 
+    it("extracts text from PDF content-type", async () => {
+  // pdf-parse expects a real PDF buffer. We'll mock at the fetch level
+  // and use a minimal valid PDF.
+  const { default: pdfParse } = await import("pdf-parse");
+
+  // Create a minimal PDF buffer that pdf-parse can handle
+  // We'll test the integration by mocking fetch to return a PDF response
+  const pdfBuffer = Buffer.from(
+    "%PDF-1.0\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n" +
+    "2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n" +
+    "3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n" +
+    "4 0 obj<</Length 44>>stream\nBT /F1 12 Tf 100 700 Td (Hello PDF World) Tj ET\nendstream\nendobj\n" +
+    "5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\n" +
+    "xref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000266 00000 n \n0000000360 00000 n \n" +
+    "trailer<</Size 6/Root 1 0 R>>\nstartxref\n434\n%%EOF"
+  );
+
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    headers: new Headers({
+      "content-type": "application/pdf",
+      "content-length": String(pdfBuffer.length),
+    }),
+    arrayBuffer: async () => pdfBuffer.buffer.slice(pdfBuffer.byteOffset, pdfBuffer.byteOffset + pdfBuffer.byteLength),
+    text: async () => pdfBuffer.toString("binary"),
+  });
+
+  const result = await extractContent("https://example.com/doc.pdf");
+  expect(result.url).toBe("https://example.com/doc.pdf");
+  expect(result.error).toBeNull();
+  expect(result.content).toBeTruthy();
+  expect(result.content.length).toBeGreaterThan(0);
+  // Should not contain binary garbage
+  expect(result.content).not.toMatch(/[\x00-\x08\x0e-\x1f]/);
+});
+
+it("returns error for corrupt PDF without binary garbage", async () => {
+  const corruptPdf = Buffer.from("not-a-real-pdf-just-garbage-data");
+
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    headers: new Headers({
+      "content-type": "application/pdf",
+      "content-length": String(corruptPdf.length),
+    }),
+    arrayBuffer: async () => corruptPdf.buffer.slice(corruptPdf.byteOffset, corruptPdf.byteOffset + corruptPdf.byteLength),
+    text: async () => corruptPdf.toString("binary"),
+  });
+
+  // Should also mock Jina fallback failure
+  mockFetch.mockResolvedValueOnce({
+    ok: false,
+    status: 500,
+    headers: new Headers({}),
+    text: async () => "",
+  });
+
+  const result = await extractContent("https://example.com/corrupt.pdf");
+  expect(result.url).toBe("https://example.com/corrupt.pdf");
+  expect(result.error).toBeTruthy();
+  expect(result.error).toContain("PDF");
+  // Must not contain binary garbage
+  expect(result.content).toBe("");
+});
+
+it("rejects PDF that exceeds MAX_SIZE", async () => {
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    headers: new Headers({
+      "content-type": "application/pdf",
+      "content-length": String(10 * 1024 * 1024), // 10MB, over 5MB limit
+    }),
+    arrayBuffer: async () => new ArrayBuffer(0),
+    text: async () => "",
+  });
+
+  const result = await extractContent("https://example.com/huge.pdf");
+  expect(result.error).toBe("Response too large");
+});
+
     it("rejects unsupported content types", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
