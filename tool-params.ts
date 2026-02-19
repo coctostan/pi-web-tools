@@ -81,3 +81,33 @@ export function normalizeCodeSearchInput(params: {
 
   return { query, tokensNum };
 }
+
+export function normalizeGetSearchContentInput(params: {
+  responseId?: unknown;
+  query?: unknown;
+  queryIndex?: unknown;
+  url?: unknown;
+  urlIndex?: unknown;
+  maxChars?: unknown;
+}) {
+  const responseId = typeof params.responseId === "string" ? params.responseId : undefined;
+  if (!responseId) {
+    throw new Error("'responseId' must be provided.");
+  }
+
+  const query = typeof params.query === "string" ? params.query : undefined;
+  const queryIndex = typeof params.queryIndex === "number" && Number.isFinite(params.queryIndex)
+    ? params.queryIndex
+    : undefined;
+  const url = typeof params.url === "string" ? params.url : undefined;
+  const urlIndex = typeof params.urlIndex === "number" && Number.isFinite(params.urlIndex)
+    ? params.urlIndex
+    : undefined;
+
+  let maxChars: number | undefined;
+  if (typeof params.maxChars === "number" && Number.isFinite(params.maxChars)) {
+    maxChars = Math.max(1, Math.round(params.maxChars));
+  }
+
+  return { responseId, query, queryIndex, url, urlIndex, maxChars };
+}

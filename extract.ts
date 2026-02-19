@@ -2,6 +2,7 @@ import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import TurndownService from "turndown";
 import pLimit from "p-limit";
+import { PDFParse } from "pdf-parse";
 import type { ExtractedContent } from "./storage.js";
 
 export type { ExtractedContent };
@@ -45,6 +46,10 @@ function isBinaryType(contentType: string): boolean {
   );
 }
 
+function isPdf(contentType: string): boolean {
+  return contentType.toLowerCase().includes("application/pdf");
+}
+
 function makeErrorResult(url: string, error: string): ExtractedContent {
   return { url, title: "", content: "", error };
 }
@@ -83,6 +88,35 @@ async function extractViaHttp(
   const contentLength = response.headers.get("content-length");
   if (contentLength && parseInt(contentLength, 10) > MAX_SIZE) {
     return makeErrorResult(url, "Response too large");
+  }
+
+  // PDF: extract text via pdf-parse
+  if (isPdf(contentType)) {
+    let parser: InstanceType<typeof PDFParse> | null = null;
+    try {
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      if (buffer.length > MAX_SIZE) {
+        return makeErrorResult(url, "Response too large");
+      }
+
+      parser = new PDFParse({ data: buffer });
+      const parsed = await parser.getText();
+      const text = parsed.text?.trim() || "";
+
+      if (text.length === 0) {
+        return makeErrorResult(url, "Failed to extract text from PDF: no readable text found");
+      }
+
+      const title = extractHeadingTitle(text.slice(0, 4096)) || titleFromUrl(url);
+      return { url, title, content: text, error: null };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return makeErrorResult(url, `Failed to extract text from PDF: ${msg}`);
+    } finally {
+      await parser?.destroy().catch(() => {});
+    }
   }
 
   const text = await response.text();

@@ -10,7 +10,10 @@ import {
   normalizeFetchContentInput,
   normalizeWebSearchInput,
   normalizeCodeSearchInput,
+  normalizeGetSearchContentInput,
 } from "./tool-params.js";
+import { truncateContent } from "./truncation.js";
+import { shouldOffload, offloadToFile, buildOffloadResult, cleanupTempFiles } from "./offload.js";
 import {
   generateId,
   storeResult,
@@ -42,6 +45,7 @@ function abortAllPending(): void {
 function handleSessionStart(ctx: ExtensionContext): void {
   abortAllPending();
   clearCloneCache();
+  cleanupTempFiles();
   sessionActive = true;
   restoreFromSession(ctx);
 }
@@ -52,6 +56,7 @@ function handleSessionShutdown(): void {
   clearCloneCache();
   clearResults();
   resetConfigCache();
+  cleanupTempFiles();
 }
 
 // ---------------------------------------------------------------------------
@@ -93,6 +98,7 @@ const GetSearchContentParams = Type.Object({
   queryIndex: Type.Optional(Type.Number({ description: "Get content for query at index" })),
   url: Type.Optional(Type.String({ description: "Get content for this URL" })),
   urlIndex: Type.Optional(Type.Number({ description: "Get content for URL at index" })),
+  maxChars: Type.Optional(Type.Number({ description: "Maximum characters to return (default: 30000, max: 100000)" })),
 });
 
 const CodeSearchParams = Type.Object({
@@ -124,6 +130,28 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_shutdown", async () => {
     handleSessionShutdown();
+  });
+
+  // Tool result interception — offload large content to temp files
+  pi.on("tool_result", async (event) => {
+    // Only intercept our own tools
+    const ourTools = new Set(["web_search", "fetch_content", "code_search", "get_search_content"]);
+    if (!ourTools.has(event.toolName)) return;
+    if (event.isError) return;
+
+    // Check if any text content exceeds threshold
+    const textContent = event.content.find(
+      (c): c is { type: "text"; text: string } => c.type === "text"
+    );
+    if (!textContent || !shouldOffload(textContent.text)) return;
+
+    // Offload to file
+    const filePath = offloadToFile(textContent.text);
+    const replacement = buildOffloadResult(textContent.text, filePath);
+
+    return {
+      content: [{ type: "text" as const, text: replacement }],
+    };
   });
 
   const registrationConfig = getConfig();
@@ -587,7 +615,7 @@ export default function (pi: ExtensionAPI) {
     parameters: GetSearchContentParams,
 
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
-      const { responseId, query, queryIndex, url, urlIndex } = params;
+      const { responseId, query, queryIndex, url, urlIndex, maxChars } = normalizeGetSearchContentInput(params);
 
       const stored = getResult(responseId);
       if (!stored) {
@@ -628,7 +656,7 @@ export default function (pi: ExtensionAPI) {
             lines.push("");
           }
           return {
-            content: [{ type: "text", text: lines.join("\n") }],
+            content: [{ type: "text", text: truncateContent(lines.join("\n"), maxChars) }],
             details: { type: "search", queryCount: stored.queries.length },
           };
         }
@@ -639,6 +667,7 @@ export default function (pi: ExtensionAPI) {
         } else {
           text += targetQuery.answer;
         }
+        text = truncateContent(text, maxChars);
 
         return {
           content: [{ type: "text", text }],
@@ -686,7 +715,7 @@ export default function (pi: ExtensionAPI) {
           lines.push("");
           lines.push("Specify url or urlIndex to retrieve full content.");
           return {
-            content: [{ type: "text", text: lines.join("\n") }],
+            content: [{ type: "text", text: truncateContent(lines.join("\n"), maxChars) }],
             details: { type: "fetch", urlCount: stored.urls.length },
           };
         }
@@ -700,7 +729,7 @@ export default function (pi: ExtensionAPI) {
           };
         }
 
-        const text = `# ${targetContent.title}\n\n${targetContent.content}`;
+        const text = truncateContent(`# ${targetContent.title}\n\n${targetContent.content}`, maxChars);
         return {
           content: [{ type: "text", text }],
           details: {
@@ -723,7 +752,7 @@ export default function (pi: ExtensionAPI) {
         }
 
         return {
-          content: [{ type: "text", text: ctx.content }],
+          content: [{ type: "text", text: truncateContent(ctx.content, maxChars) }],
           details: {
             type: "context",
             query: ctx.query,
