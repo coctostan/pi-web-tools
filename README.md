@@ -108,7 +108,7 @@ web_search({ query: "rust async", includeDomains: ["github.com", "docs.rs"] })
 
 ### `fetch_content`
 
-Fetch URL(s) and extract readable content as markdown. Supports GitHub repository contents (clone + tree/file views).
+Fetch URL(s) and extract readable content as markdown. Supports GitHub repository contents (clone + tree/file views) and **PDF text extraction**.
 
 Parameters:
 
@@ -124,7 +124,12 @@ Examples:
 fetch_content({ url: "https://react.dev/reference/react/use-client" })
 fetch_content({ url: "https://github.com/facebook/react" })
 fetch_content({ url: "https://github.com/facebook/react/blob/main/packages/react/src/React.js" })
+fetch_content({ url: "https://example.com/report.pdf" })
 ```
+
+#### PDF support
+
+URLs returning `application/pdf` are automatically detected and their text is extracted using `pdf-parse`. Corrupt, encrypted, or empty PDFs return a clear error message — no binary garbage enters context. PDFs over 5MB are rejected.
 
 #### GitHub cloning behavior
 
@@ -163,6 +168,19 @@ Parameters:
 | `queryIndex` | number (optional) | Get content for query at index |
 | `url` | string (optional) | Get content for this URL |
 | `urlIndex` | number (optional) | Get content for URL at index |
+| `maxChars` | number (optional) | Maximum characters to return (default: 30,000, max: 100,000) |
+
+Content exceeding the limit is truncated with a message showing total size and instructions to request more via a higher `maxChars` value.
+
+## Content Size Management
+
+This extension protects LLM context from being overwhelmed by large content through three layers:
+
+1. **Inline truncation**: `fetch_content` and `web_search` results are truncated to 30KB inline, with full content stored for retrieval via `get_search_content`.
+
+2. **`get_search_content` guardrails**: Retrieved content is capped at 30K characters by default (configurable up to 100K via `maxChars`). Content beyond the limit is truncated with a message showing total size.
+
+3. **Dynamic file offloading**: When any tool result exceeds 30K characters, the full content is written to a secure temp file and the result is replaced with a 2KB preview, the file path, and total size. The model can then use `bash` to search/filter the file (e.g. `grep -i 'revenue' /tmp/pi-web-xxxx/abcd1234.txt`), so only relevant excerpts enter context. Temp files are cleaned up automatically on session shutdown.
 
 ## Development
 
@@ -174,6 +192,18 @@ npm run test:watch
 # Load in pi for manual testing
 pi -e ./index.ts
 ```
+
+## Changelog
+
+### 1.2.0
+
+- **PDF text extraction**: `fetch_content` now extracts readable text from PDF URLs via `pdf-parse`. Corrupt/empty/oversized PDFs return clear error messages.
+- **`get_search_content` size guardrails**: New `maxChars` parameter (default 30K, hard cap 100K) prevents oversized content from flooding context.
+- **Dynamic file offloading**: Large tool results (>30K chars) are automatically written to secure temp files with a preview + file path returned to the model. Temp files cleaned up on session shutdown.
+
+### 1.1.0
+
+- Initial release with `web_search`, `code_search`, `fetch_content`, and `get_search_content`.
 
 ## License
 
