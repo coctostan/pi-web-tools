@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "activeIssue": "012-haiku-filter-on-fetch-content",
+  "workflow": "feature",
+  "phase": "done",
+  "phaseHistory": [
+    {
+      "from": "brainstorm",
+      "to": "spec",
+      "timestamp": 1772662023040
+    },
+    {
+      "from": "spec",
+      "to": "plan",
+      "timestamp": 1772662101547
+    },
+    {
+      "from": "plan",
+      "to": "implement",
+      "timestamp": 1772665681993
+    },
+    {
+      "from": "implement",
+      "to": "verify",
+      "timestamp": 1772666629851
+    },
+    {
+      "from": "verify",
+      "to": "code-review",
+      "timestamp": 1772666833839
+    },
+    {
+      "from": "code-review",
+      "to": "done",
+      "timestamp": 1772667050995
+    }
+  ],
+  "reviewApproved": false,
+  "planMode": null,
+  "planIteration": 3,
+  "currentTaskIndex": 9,
+  "completedTasks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "tddTaskState": null,
+  "doneActions": [
+    "generate-docs",
+    "write-changelog",
+    "capture-learnings",
+    "push-and-pr",
+    "close-issue"
+  ],
+  "doneChecklistShown": true,
+  "megaEnabled": true,
+  "branchName": "feat/012-haiku-filter-on-fetch-content",
+  "baseBranch": "main"
+}
