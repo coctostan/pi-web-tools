@@ -4,7 +4,7 @@ import { Type } from "@sinclair/typebox";
 import { complete } from "@mariozechner/pi-ai";
 import pLimit from "p-limit";
 import { searchExa, formatSearchResults } from "./exa-search.js";
-import { extractContent, fetchAllContent } from "./extract.js";
+import { extractContent, fetchAllContent, clearUrlCache } from "./extract.js";
 import { extractGitHub, clearCloneCache, parseGitHubUrl } from "./github-extract.js";
 import { getConfig, resetConfigCache } from "./config.js";
 import { searchContext } from "./exa-context.js";
@@ -32,7 +32,6 @@ import {
 
 const MAX_INLINE_CONTENT = 30000;
 const pendingFetches = new Map<string, AbortController>();
-let sessionActive = false;
 
 // ---------------------------------------------------------------------------
 // Session event handlers
@@ -48,13 +47,12 @@ function abortAllPending(): void {
 function handleSessionStart(ctx: ExtensionContext): void {
   abortAllPending();
   clearCloneCache();
+  clearUrlCache();
   cleanupTempFiles();
-  sessionActive = true;
   restoreFromSession(ctx);
 }
 
 function handleSessionShutdown(): void {
-  sessionActive = false;
   abortAllPending();
   clearCloneCache();
   clearResults();
@@ -192,41 +190,45 @@ export default function (pi: ExtensionAPI) {
         let successfulQueries = 0;
         let totalResults = 0;
 
-        for (const q of queryList) {
-          try {
-            const searchResults = await searchExa(q, {
-              apiKey: config.exaApiKey,
-              numResults: numResults !== undefined ? Math.max(1, Math.min(numResults, 20)) : 5,
-              type,
-              category,
-              includeDomains,
-              excludeDomains,
-              signal: combinedSignal,
-              detail,
-            });
-            const formatted = formatSearchResults(searchResults);
-            results.push({
-              query: q,
-              answer: formatted,
-              results: searchResults.map((r) => ({
-                title: r.title,
-                url: r.url,
-                snippet: r.snippet,
-              })),
-              error: null,
-            });
-            successfulQueries++;
-            totalResults += searchResults.length;
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            results.push({
-              query: q,
-              answer: "",
-              results: [],
-              error: msg,
-            });
-          }
-        }
+        const limit = pLimit(3);
+        const resultPromises = queryList.map((q) =>
+          limit(async (): Promise<QueryResultData> => {
+            try {
+              const searchResults = await searchExa(q, {
+                apiKey: config.exaApiKey,
+                numResults: numResults !== undefined ? Math.max(1, Math.min(numResults, 20)) : 5,
+                type,
+                category,
+                includeDomains,
+                excludeDomains,
+                signal: combinedSignal,
+                detail,
+              });
+              const formatted = formatSearchResults(searchResults);
+              successfulQueries++;
+              totalResults += searchResults.length;
+              return {
+                query: q,
+                answer: formatted,
+                results: searchResults.map((r) => ({
+                  title: r.title,
+                  url: r.url,
+                  snippet: r.snippet,
+                })),
+                error: null,
+              };
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              return {
+                query: q,
+                answer: "",
+                results: [],
+                error: msg,
+              };
+            }
+          })
+        );
+        results.push(...(await Promise.all(resultPromises)));
 
         const searchId = generateId();
         const storedData: StoredResultData = {
@@ -361,7 +363,8 @@ export default function (pi: ExtensionAPI) {
         if (dedupedUrls.length === 1) {
           results = [await fetchOne(dedupedUrls[0])];
         } else {
-          results = await Promise.all(dedupedUrls.map(fetchOne));
+          const limit = pLimit(3);
+          results = await Promise.all(dedupedUrls.map((url) => limit(() => fetchOne(url))));
         }
 
         const responseId = generateId();

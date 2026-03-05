@@ -1,3 +1,198 @@
+---
+id: 9
+title: Convert all sync fs operations in github-extract.ts to fs.promises
+status: approved
+depends_on: []
+no_test: false
+files_to_modify:
+  - github-extract.ts
+  - github-extract.clone.test.ts
+files_to_create: []
+---
+
+Covers AC 13 and AC 14. Converts every synchronous `fs` call (`existsSync`, `readFileSync`, `statSync`, `readdirSync`, `rmSync`, `openSync`, `readSync`, `closeSync`) to their `fs.promises` equivalents. All affected functions (`isBinaryFile`, `buildTree`, `buildDirListing`, `readReadme`, `generateContent`, `execClone`, `cloneRepo`, `clearCloneCache`) become async where needed. The `github-extract.clone.test.ts` mock is updated from `node:fs` to `node:fs/promises`.
+
+**Files:**
+- Modify: `github-extract.ts`
+- Test: `github-extract.clone.test.ts`
+
+**Step 1 — Write the failing test**
+
+Update `github-extract.clone.test.ts` completely. Replace the `state` hoisted object and `vi.mock("node:fs", ...)` block with async equivalents:
+
+```ts
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const state = vi.hoisted(() => ({
+  mode: "oversize" as "oversize" | "clone-fail" | "clone-throw" | "content-throw",
+  rm: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("./config.js", () => ({
+  getConfig: () => ({
+    exaApiKey: null,
+    github: {
+      maxRepoSizeMB: 1,
+      cloneTimeoutSeconds: 1,
+      clonePath: "/tmp/pi-github-repos-test",
+    },
+  }),
+}));
+
+vi.mock("node:fs/promises", async () => {
+  return {
+    rm: state.rm,
+    access: vi.fn(async () => {
+      if (state.mode === "content-throw") {
+        // File exists in content-throw mode
+        return;
+      }
+      throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+    }),
+    stat: vi.fn(async () => {
+      if (state.mode === "content-throw") {
+        throw new Error("stat exploded");
+      }
+      return { isDirectory: () => false, size: 0 };
+    }),
+    readdir: vi.fn(async () => []),
+    readFile: vi.fn(async () => ""),
+    open: vi.fn(async () => ({
+      read: vi.fn(async () => ({ bytesRead: 0, buffer: Buffer.alloc(0) })),
+      close: vi.fn(async () => {}),
+    })),
+  };
+});
+
+vi.mock("node:child_process", () => ({
+  execFile: (cmd: string, args: string[], _opts: unknown, cb: (err: Error | null, stdout: string, stderr: string) => void) => {
+    const joined = [cmd, ...args].join(" ");
+
+    if (joined.includes("gh api") && joined.includes("--jq") && joined.includes(".size")) {
+      if (state.mode === "oversize") {
+        cb(null, "999999", "");
+      } else {
+        cb(null, "10", "");
+      }
+      return { on() {}, kill() {} };
+    }
+
+    if (joined.startsWith("gh repo clone") || joined.startsWith("git clone")) {
+      if (state.mode === "clone-throw") {
+        throw new Error("clone exploded");
+      }
+      if (state.mode === "clone-fail") {
+        cb(new Error("clone failed"), "", "");
+      } else {
+        cb(null, "", "");
+      }
+      return { on() {}, kill() {} };
+    }
+
+    cb(new Error(`unexpected command: ${joined}`), "", "");
+    return { on() {}, kill() {} };
+  },
+}));
+
+describe("extractGitHub clone behavior", () => {
+  beforeEach(() => {
+    state.mode = "oversize";
+    state.rm.mockReset();
+    vi.resetModules();
+  });
+
+  it("skips cloning oversized repos and returns a helpful message", async () => {
+    const { extractGitHub } = await import("./github-extract.js");
+
+    const result = await extractGitHub("https://github.com/owner/repo");
+    expect(result).not.toBeNull();
+    expect(result!.content).toMatch(/Skipping clone/i);
+    expect(result!.content).toMatch(/forceClone: true/i);
+  });
+
+  it("cleans up local clone path when clone fails", async () => {
+    state.mode = "clone-fail";
+
+    const { extractGitHub, clearCloneCache } = await import("./github-extract.js");
+
+    const result = await extractGitHub("https://github.com/owner/repo");
+    expect(result).toBeNull();
+
+    const expectedPath = "/tmp/pi-github-repos-test/owner/repo";
+    const expectedOptions = { recursive: true, force: true };
+    const matchingCalls = state.rm.mock.calls.filter(
+      ([path, options]: [string, object]) =>
+        path === expectedPath && JSON.stringify(options) === JSON.stringify(expectedOptions)
+    );
+
+    expect(matchingCalls.length).toBeGreaterThan(1);
+
+    clearCloneCache();
+  });
+
+  it("returns null and cleans up when clone command throws unexpectedly", async () => {
+    state.mode = "clone-throw";
+
+    const { extractGitHub, clearCloneCache } = await import("./github-extract.js");
+
+    await expect(extractGitHub("https://github.com/owner/repo")).resolves.toBeNull();
+
+    const expectedPath = "/tmp/pi-github-repos-test/owner/repo";
+    const expectedOptions = { recursive: true, force: true };
+    const matchingCalls = state.rm.mock.calls.filter(
+      ([path, options]: [string, object]) =>
+        path === expectedPath && JSON.stringify(options) === JSON.stringify(expectedOptions)
+    );
+
+    expect(matchingCalls.length).toBeGreaterThan(1);
+
+    clearCloneCache();
+  });
+
+  it("cleans up when content generation fails after a successful clone", async () => {
+    state.mode = "content-throw";
+
+    const { extractGitHub, clearCloneCache } = await import("./github-extract.js");
+
+    await expect(extractGitHub("https://github.com/owner/repo/blob/main/README.md")).resolves.toBeNull();
+
+    const expectedPath = "/tmp/pi-github-repos-test/owner/repo@main";
+    const expectedOptions = { recursive: true, force: true };
+    const matchingCalls = state.rm.mock.calls.filter(
+      ([path, options]: [string, object]) =>
+        path === expectedPath && JSON.stringify(options) === JSON.stringify(expectedOptions)
+    );
+
+    expect(matchingCalls.length).toBeGreaterThan(1);
+
+    clearCloneCache();
+  });
+});
+```
+
+**Step 2 — Run test, verify it fails**
+
+Run: `npx vitest run github-extract.clone.test.ts`
+Expected: FAIL — `AssertionError: expected 0 to be greater than 1`
+
+(The `node:fs/promises` mock is now in place but the implementation still uses synchronous `rmSync` from `node:fs`, so `state.rm` is never called. The "cleans up local clone path when clone fails" test fails because `state.rm.mock.calls` is empty.)
+
+**Step 3 — Write minimal implementation**
+
+Replace the entire content of `github-extract.ts` with the async version below.
+
+Key changes:
+1. Remove all `node:fs` sync imports; add named imports from `node:fs/promises`
+2. `isBinaryFile` → async using `fs.promises.open`/`fileHandle.read`
+3. `buildTree` → async using `readdir` + `stat`
+4. `buildDirListing` → async using `readdir` + `stat`
+5. `readReadme` → async using `access` + `readFile`
+6. `generateContent` → async; uses `access` for existence checks, `stat` without try-catch in blob path (preserves throw-on-error behavior for content-throw test)
+7. `execClone` → async; cleanup via `await rm(...)` after Promise resolves
+8. `cloneRepo` → async cleanup via `await rm(...)`
+9. `clearCloneCache` → fire-and-forget `rm(...).catch(() => {})` (stays sync)
+
+```ts
 import { rm, access, stat, readdir, readFile, open } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import { execFile } from "node:child_process";
@@ -547,3 +742,20 @@ export function clearCloneCache(): void {
   }
   cloneCache.clear();
 }
+```
+
+**Step 4 — Run test, verify it passes**
+
+Run: `npx vitest run github-extract.clone.test.ts`
+Expected: PASS
+
+**Step 5 — Verify no regressions**
+
+Run: `npm test`
+Expected: all passing
+
+Verify no sync fs methods remain:
+```bash
+grep -E 'existsSync|readFileSync|statSync|readdirSync|rmSync|openSync|readSync|closeSync' github-extract.ts
+```
+Expected: no output
