@@ -19,12 +19,14 @@ export interface ToolToggles {
 
 export interface WebToolsConfig {
   exaApiKey: string | null;
+  filterModel?: string;
   github: GitHubConfig;
   tools: ToolToggles;
 }
 
 const DEFAULT_CONFIG: WebToolsConfig = {
   exaApiKey: null,
+  filterModel: undefined,
   github: {
     maxRepoSizeMB: 350,
     cloneTimeoutSeconds: 30,
@@ -87,6 +89,9 @@ function buildConfig(): WebToolsConfig {
     exaApiKey = DEFAULT_CONFIG.exaApiKey;
   }
 
+  const filterModel = typeof file["filterModel"] === "string" && file["filterModel"].includes("/")
+    ? file["filterModel"]
+    : undefined;
   const fileTools = (file["tools"] && typeof file["tools"] === "object" && !Array.isArray(file["tools"]))
     ? file["tools"] as Record<string, unknown>
     : {};
@@ -103,7 +108,7 @@ function buildConfig(): WebToolsConfig {
     tools.get_search_content = false;
   }
 
-  return { exaApiKey, github, tools };
+  return { exaApiKey, filterModel, github, tools };
 }
 
 export function getConfig(): WebToolsConfig {

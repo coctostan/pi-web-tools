@@ -1,11 +1,14 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
+import { complete } from "@mariozechner/pi-ai";
+import pLimit from "p-limit";
 import { searchExa, formatSearchResults } from "./exa-search.js";
 import { extractContent, fetchAllContent } from "./extract.js";
 import { extractGitHub, clearCloneCache, parseGitHubUrl } from "./github-extract.js";
 import { getConfig, resetConfigCache } from "./config.js";
 import { searchContext } from "./exa-context.js";
+import { filterContent } from "./filter.js";
 import {
   normalizeFetchContentInput,
   normalizeWebSearchInput,
@@ -90,6 +93,7 @@ const FetchContentParams = Type.Object({
   url: Type.Optional(Type.String({ description: "Single URL to fetch" })),
   urls: Type.Optional(Type.Array(Type.String(), { description: "Multiple URLs (parallel)" })),
   forceClone: Type.Optional(Type.Boolean({ description: "Force cloning large GitHub repos" })),
+  prompt: Type.Optional(Type.String({ description: "Question to answer from the fetched content. When provided, content is filtered through a cheap model and only the focused answer is returned (~200-1000 chars instead of full page)." })),
 });
 
 const GetSearchContentParams = Type.Object({
@@ -317,11 +321,11 @@ export default function (pi: ExtensionAPI) {
     name: "fetch_content",
     label: "Fetch Content",
     description:
-      "Fetch URL(s) and extract readable content as markdown. Supports GitHub repository contents (clone + tree). Content is stored and can be retrieved with get_search_content if truncated.",
+      "Fetch URL(s) and extract readable content as markdown. Supports GitHub repository contents (clone + tree). Content is stored and can be retrieved with get_search_content if truncated.\n\nFor focused answers, use the `prompt` parameter with a specific question — the content will be filtered through a cheap model and only the relevant answer returned (~200-1000 chars instead of full page content).",
     parameters: FetchContentParams,
 
-    async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
-      const { urls: dedupedUrls, forceClone } = normalizeFetchContentInput(params);
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+      const { urls: dedupedUrls, forceClone, prompt } = normalizeFetchContentInput(params);
 
       const abortController = new AbortController();
       const fetchId = generateId();
@@ -370,6 +374,55 @@ export default function (pi: ExtensionAPI) {
             };
           }
 
+          if (prompt) {
+            const config = getConfig();
+            const filterResult = await filterContent(
+              r.content,
+              prompt,
+              ctx.modelRegistry,
+              config.filterModel,
+              complete
+            );
+
+            if (filterResult.filtered) {
+              return {
+                content: [{ type: "text", text: `Source: ${r.url}\n\n${filterResult.filtered}` }],
+                details: {
+                  responseId,
+                  url: r.url,
+                  title: r.title,
+                  charCount: filterResult.filtered.length,
+                  filtered: true,
+                  filterModel: filterResult.model,
+                },
+              };
+            }
+
+            const reason = filterResult.reason.startsWith("No filter model available")
+              ? "No filter model available. Returning raw content."
+              : filterResult.reason;
+
+            let text = `⚠ ${reason}\n\n# ${r.title}\n\n${r.content}`;
+            let truncated = false;
+
+            if (text.length > MAX_INLINE_CONTENT) {
+              text = text.slice(0, MAX_INLINE_CONTENT);
+              text += `\n\n[Content truncated at ${MAX_INLINE_CONTENT} chars. Use get_search_content with responseId "${responseId}" to retrieve full content.]`;
+              truncated = true;
+            }
+
+            return {
+              content: [{ type: "text", text }],
+              details: {
+                responseId,
+                url: r.url,
+                title: r.title,
+                charCount: r.content.length,
+                truncated,
+                filtered: false,
+              },
+            };
+          }
           let text = `# ${r.title}\n\n${r.content}`;
           let truncated = false;
 
@@ -391,12 +444,60 @@ export default function (pi: ExtensionAPI) {
           };
         }
 
-        // Multiple URLs: return summary
+        // Multiple URLs
+        if (prompt) {
+          const config = getConfig();
+          const limit = pLimit(3);
+          const blocks = await Promise.all(
+            results.map((r) =>
+              limit(async () => {
+                if (r.error) {
+                  return `❌ ${r.url}: ${r.error}`;
+                }
+
+                const filterResult = await filterContent(
+                  r.content,
+                  prompt,
+                  ctx.modelRegistry,
+                  config.filterModel,
+                  complete
+                );
+
+                if (filterResult.filtered) {
+                  return `Source: ${r.url}\n\n${filterResult.filtered}`;
+                }
+
+                const reason = filterResult.reason.startsWith("No filter model available")
+                  ? "No filter model available. Returning raw content."
+                  : filterResult.reason;
+
+                let fallbackText = `⚠ ${reason}\n\n# ${r.title}\n\n${r.content}`;
+                if (fallbackText.length > MAX_INLINE_CONTENT) {
+                  fallbackText = fallbackText.slice(0, MAX_INLINE_CONTENT);
+                  fallbackText += `\n\n[Content truncated. Use get_search_content with responseId "${responseId}" and url "${r.url}" for full content.]`;
+                }
+                return fallbackText;
+              })
+            )
+          );
+
+          const successCount = results.filter((r) => !r.error).length;
+          return {
+            content: [{ type: "text", text: blocks.join("\n\n---\n\n") }],
+            details: {
+              responseId,
+              successCount,
+              totalCount: results.length,
+              filtered: true,
+            },
+          };
+        }
+
+        // No prompt: existing summary behavior
         const successCount = results.filter((r) => !r.error).length;
         const lines: string[] = [];
         lines.push(`Fetched ${successCount}/${results.length} URLs. Response ID: ${responseId}`);
         lines.push("");
-
         for (let i = 0; i < results.length; i++) {
           const r = results[i];
           if (r.error) {
@@ -409,7 +510,6 @@ export default function (pi: ExtensionAPI) {
 
         lines.push("");
         lines.push(`Use get_search_content with responseId "${responseId}" and url/urlIndex to retrieve content.`);
-
         return {
           content: [{ type: "text", text: lines.join("\n") }],
           details: {

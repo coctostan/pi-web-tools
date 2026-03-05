@@ -50,19 +50,19 @@ export function normalizeWebSearchInput(params: {
   return { queries: queryList, numResults, type, category, includeDomains, excludeDomains };
 }
 
-export function normalizeFetchContentInput(params: { url?: unknown; urls?: unknown; forceClone?: unknown }) {
+export function normalizeFetchContentInput(params: { url?: unknown; urls?: unknown; forceClone?: unknown; prompt?: unknown }) {
   const url = typeof params.url === "string" ? params.url : undefined;
   const urls = Array.isArray(params.urls)
     ? params.urls.filter((u): u is string => typeof u === "string")
     : undefined;
-
   const urlList = (urls && urls.length > 0) ? urls : (url ? [url] : []);
   if (urlList.length === 0) {
     throw new Error("Either 'url' or 'urls' must be provided.");
   }
-
   const forceClone = typeof params.forceClone === "boolean" ? params.forceClone : undefined;
-  return { urls: dedupeUrls(urlList), forceClone };
+  const prompt = typeof params.prompt === "string" ? params.prompt : undefined;
+
+  return { urls: dedupeUrls(urlList), forceClone, prompt };
 }
 
 export function normalizeCodeSearchInput(params: {

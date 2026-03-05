@@ -46,6 +46,20 @@ describe("config", () => {
     expect(config.github.clonePath).toBe("/tmp/pi-github-repos");
   });
 
+  it("reads filterModel from config when present", () => {
+    writeFileSync(configPath, JSON.stringify({ filterModel: "anthropic/claude-haiku-4-5" }));
+    resetConfigCache();
+    const config = getConfig();
+    expect(config.filterModel).toBe("anthropic/claude-haiku-4-5");
+  });
+
+  it("defaults filterModel to undefined when missing", () => {
+    writeFileSync(configPath, JSON.stringify({}));
+    resetConfigCache();
+    const config = getConfig();
+    expect(config.filterModel).toBeUndefined();
+  });
+
   it("reads config from file correctly", () => {
     const fileConfig = {
       exaApiKey: "test-key-from-file",

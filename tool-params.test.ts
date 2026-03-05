@@ -97,4 +97,19 @@ describe("tool-params", () => {
   it("normalizeFetchContentInput accepts urls array and dedupes", () => {
     expect(normalizeFetchContentInput({ urls: ["u1", "u1", "u2"] }).urls).toEqual(["u1", "u2"]);
   });
+
+  it("extracts prompt string when provided", () => {
+    const result = normalizeFetchContentInput({
+      url: "https://example.com",
+      prompt: "What is the API rate limit?",
+    });
+    expect(result.prompt).toBe("What is the API rate limit?");
+  });
+
+  it("defaults prompt to undefined when not provided", () => {
+    const result = normalizeFetchContentInput({
+      url: "https://example.com",
+    });
+    expect(result.prompt).toBeUndefined();
+  });
 });
