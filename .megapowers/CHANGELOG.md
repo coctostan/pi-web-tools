@@ -11,3 +11,19 @@
 - `web_search` results now default to summary mode (~1-2K tokens per search vs. ~5-15K previously). Existing callers relying on highlights should pass `detail: "highlights"`. (#013)
 - `fetch_content` without `prompt` no longer inlines content up to 30K; always writes to a temp file and returns a preview + path. (#013)
 - `formatSearchResults()` no longer truncates snippets to 200 chars (summaries are already brief). (#013)
+
+### Added (014)
+- `retryFetch()` utility: exponential backoff with jitter for Exa API calls, retrying up to 3 times on 429/503/504 and network errors. Configurable `maxAttempts` and `baseDelayMs`. (#014)
+- `p-limit(3)` concurrency control for multi-URL `fetch_content` and multi-query `web_search` — max 3 parallel requests instead of unbounded `Promise.all`. (#014)
+
+### Added (015)
+- Session-scoped URL cache in `extractContent()`: same URL fetched twice within 30 minutes returns cached result with zero additional network requests. Cache is cleared on every session start event. (#006)
+- `clearUrlCache()` export from `extract.ts` for explicit cache invalidation. (#006)
+- `constants.ts` with `HTTP_FETCH_TIMEOUT_MS` (30 s) and `URL_CACHE_TTL_MS` (30 min), replacing magic `30000` literals in `extract.ts`. (#007)
+
+### Changed (015)
+- `github-extract.ts` fully converted from synchronous `fs` to `fs.promises` — eliminates event-loop blocking during GitHub repo traversal. (#007)
+
+### Removed (015)
+- Dead `sessionActive` variable from `index.ts` (was set but never read). (#007)
+- Stale `todo.md` from repository root. (#007)

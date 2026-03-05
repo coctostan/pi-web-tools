@@ -1,76 +1,18 @@
 {
   "version": 1,
-  "activeIssue": "013-lean-context-summary-search-file-first-s",
-  "workflow": "feature",
-  "phase": "done",
-  "phaseHistory": [
-    {
-      "from": "brainstorm",
-      "to": "spec",
-      "timestamp": 1772668864594
-    },
-    {
-      "from": "spec",
-      "to": "plan",
-      "timestamp": 1772669041532
-    },
-    {
-      "from": "plan",
-      "to": "implement",
-      "timestamp": 1772675198013
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1772676620635
-    },
-    {
-      "from": "verify",
-      "to": "code-review",
-      "timestamp": 1772676884295
-    },
-    {
-      "from": "code-review",
-      "to": "done",
-      "timestamp": 1772677278939
-    }
-  ],
+  "activeIssue": null,
+  "workflow": null,
+  "phase": null,
+  "phaseHistory": [],
   "reviewApproved": false,
   "planMode": null,
-  "planIteration": 4,
-  "currentTaskIndex": 19,
-  "completedTasks": [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11,
-    12,
-    13,
-    14,
-    15,
-    16,
-    17,
-    18,
-    19,
-    20
-  ],
+  "planIteration": 0,
+  "currentTaskIndex": 0,
+  "completedTasks": [],
   "tddTaskState": null,
-  "doneActions": [
-    "generate-docs",
-    "write-changelog",
-    "capture-learnings",
-    "push-and-pr",
-    "close-issue"
-  ],
-  "doneChecklistShown": true,
+  "doneActions": [],
+  "doneChecklistShown": false,
   "megaEnabled": true,
-  "branchName": "feat/013-lean-context-summary-search-file-first-s",
-  "baseBranch": "feat/012-haiku-filter-on-fetch-content"
+  "branchName": null,
+  "baseBranch": null
 }
