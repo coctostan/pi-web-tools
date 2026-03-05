@@ -40,6 +40,7 @@ vi.mock("./config.js", () => ({
 
 const exaState = vi.hoisted(() => ({
   searchExa: vi.fn(),
+  findSimilarExa: vi.fn(),
   formatSearchResults: vi.fn(),
 }));
 
@@ -52,6 +53,7 @@ const offloadState = vi.hoisted(() => ({
 
 vi.mock("./exa-search.js", () => ({
   searchExa: exaState.searchExa,
+  findSimilarExa: exaState.findSimilarExa,
   formatSearchResults: exaState.formatSearchResults,
 }));
 
@@ -815,5 +817,52 @@ describe("tool_result offload interceptor", () => {
     });
 
     expect(smallIntercept).toBeUndefined();
+  });
+});
+
+describe("web_search similarUrl routing", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("calls findSimilarExa (not searchExa) when similarUrl is provided", async () => {
+    exaState.findSimilarExa.mockResolvedValueOnce([
+      { title: "Similar", url: "https://similar.com", snippet: "similar content" },
+    ]);
+    exaState.formatSearchResults.mockReturnValue("1. **Similar**\n   https://similar.com\n   similar content");
+
+    const { webSearchTool } = await getWebSearchTool();
+    await webSearchTool.execute("call-similar", { similarUrl: "https://example.com" });
+
+    expect(exaState.findSimilarExa).toHaveBeenCalledWith(
+      "https://example.com",
+      expect.objectContaining({ apiKey: null })
+    );
+    expect(exaState.searchExa).not.toHaveBeenCalled();
+  });
+
+  it("calls searchExa (not findSimilarExa) when query is provided", async () => {
+    exaState.searchExa.mockResolvedValueOnce([
+      { title: "Result", url: "https://example.com", snippet: "result" },
+    ]);
+    exaState.formatSearchResults.mockReturnValue("formatted");
+
+    const { webSearchTool } = await getWebSearchTool();
+    await webSearchTool.execute("call-query", { query: "foo" });
+
+    expect(exaState.searchExa).toHaveBeenCalled();
+    expect(exaState.findSimilarExa).not.toHaveBeenCalled();
+  });
+  it("returns queryCount 1 (not 0) when similarUrl is used", async () => {
+    exaState.findSimilarExa.mockResolvedValueOnce([
+      { title: "Similar", url: "https://similar.com", snippet: "similar" },
+      { title: "Similar 2", url: "https://similar2.com", snippet: "similar 2" },
+    ]);
+    exaState.formatSearchResults.mockReturnValue("formatted");
+
+    const { webSearchTool } = await getWebSearchTool();
+    const result = await webSearchTool.execute("call-qc", { similarUrl: "https://example.com" });
+
+    expect((result as any).details.queryCount).toBe(1);
   });
 });

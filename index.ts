@@ -3,7 +3,7 @@ import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { complete } from "@mariozechner/pi-ai";
 import pLimit from "p-limit";
-import { searchExa, formatSearchResults } from "./exa-search.js";
+import { searchExa, findSimilarExa, formatSearchResults } from "./exa-search.js";
 import { extractContent, fetchAllContent, clearUrlCache } from "./extract.js";
 import { extractGitHub, clearCloneCache, parseGitHubUrl } from "./github-extract.js";
 import { getConfig, resetConfigCache } from "./config.js";
@@ -89,6 +89,13 @@ const WebSearchParams = Type.Object({
     Type.Literal("summary"),
     Type.Literal("highlights"),
   ], { description: 'Detail level: "summary" (default) or "highlights"' })),
+  freshness: Type.Optional(Type.Union([
+    Type.Literal("realtime"),
+    Type.Literal("day"),
+    Type.Literal("week"),
+    Type.Literal("any"),
+  ], { description: 'Content freshness: "realtime" (0h), "day" (24h), "week" (168h), "any" (default, no filter)' })),
+  similarUrl: Type.Optional(Type.String({ description: "Find pages similar to this URL (alternative to query)" })),
 });
 
 const FetchContentParams = Type.Object({
@@ -174,7 +181,7 @@ export default function (pi: ExtensionAPI) {
     parameters: WebSearchParams,
 
     async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
-      const { queries: queryList, numResults, type, category, includeDomains, excludeDomains, detail } = normalizeWebSearchInput(params);
+      const { queries: queryList, numResults, type, category, includeDomains, excludeDomains, detail, maxAgeHours, similarUrl } = normalizeWebSearchInput(params);
 
       const config = getConfig();
       const abortController = new AbortController();
@@ -189,46 +196,80 @@ export default function (pi: ExtensionAPI) {
         const results: QueryResultData[] = [];
         let successfulQueries = 0;
         let totalResults = 0;
-
-        const limit = pLimit(3);
-        const resultPromises = queryList.map((q) =>
-          limit(async (): Promise<QueryResultData> => {
-            try {
-              const searchResults = await searchExa(q, {
-                apiKey: config.exaApiKey,
-                numResults: numResults !== undefined ? Math.max(1, Math.min(numResults, 20)) : 5,
-                type,
-                category,
-                includeDomains,
-                excludeDomains,
-                signal: combinedSignal,
-                detail,
-              });
-              const formatted = formatSearchResults(searchResults);
-              successfulQueries++;
-              totalResults += searchResults.length;
-              return {
-                query: q,
-                answer: formatted,
-                results: searchResults.map((r) => ({
-                  title: r.title,
-                  url: r.url,
-                  snippet: r.snippet,
-                })),
-                error: null,
-              };
-            } catch (err) {
-              const msg = err instanceof Error ? err.message : String(err);
-              return {
-                query: q,
-                answer: "",
-                results: [],
-                error: msg,
-              };
-            }
-          })
-        );
-        results.push(...(await Promise.all(resultPromises)));
+        if (similarUrl) {
+          // findSimilar mode — single request, no pLimit loop
+          try {
+            const searchResults = await findSimilarExa(similarUrl, {
+              apiKey: config.exaApiKey,
+              numResults: numResults !== undefined ? Math.max(1, Math.min(numResults, 20)) : 5,
+              signal: combinedSignal,
+              detail,
+            });
+            const formatted = formatSearchResults(searchResults);
+            successfulQueries++;
+            totalResults += searchResults.length;
+            results.push({
+              query: similarUrl,
+              answer: formatted,
+              results: searchResults.map((r) => ({
+                title: r.title,
+                url: r.url,
+                snippet: r.snippet,
+              })),
+              error: null,
+            });
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            results.push({
+              query: similarUrl,
+              answer: "",
+              results: [],
+              error: msg,
+            });
+          }
+        } else {
+          // Normal search mode — batch queries via pLimit
+          const limit = pLimit(3);
+          const resultPromises = queryList.map((q) =>
+            limit(async (): Promise<QueryResultData> => {
+              try {
+                const searchResults = await searchExa(q, {
+                  apiKey: config.exaApiKey,
+                  numResults: numResults !== undefined ? Math.max(1, Math.min(numResults, 20)) : 5,
+                  type,
+                  category,
+                  includeDomains,
+                  excludeDomains,
+                  signal: combinedSignal,
+                  detail,
+                  maxAgeHours,
+                });
+                const formatted = formatSearchResults(searchResults);
+                successfulQueries++;
+                totalResults += searchResults.length;
+                return {
+                  query: q,
+                  answer: formatted,
+                  results: searchResults.map((r) => ({
+                    title: r.title,
+                    url: r.url,
+                    snippet: r.snippet,
+                  })),
+                  error: null,
+                };
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                return {
+                  query: q,
+                  answer: "",
+                  results: [],
+                  error: msg,
+                };
+              }
+            })
+          );
+          results.push(...(await Promise.all(resultPromises)));
+        }
 
         const searchId = generateId();
         const storedData: StoredResultData = {
@@ -256,7 +297,7 @@ export default function (pi: ExtensionAPI) {
         return {
           content: [{ type: "text", text: textParts.join("\n") }],
           details: {
-            queryCount: queryList.length,
+            queryCount: similarUrl ? 1 : queryList.length,
             successfulQueries,
             totalResults,
             responseId: searchId,
@@ -269,12 +310,17 @@ export default function (pi: ExtensionAPI) {
 
     renderCall(args, theme) {
       let text = theme.fg("toolTitle", theme.bold("search "));
-      const queryText = args.queries
-        ? args.queries.join(", ")
-        : args.query || "";
-      const truncated =
-        queryText.length > 60 ? queryText.slice(0, 60) + "…" : queryText;
-      text += theme.fg("accent", `"${truncated}"`);
+      if (args.similarUrl) {
+        const truncated = args.similarUrl.length > 60 ? args.similarUrl.slice(0, 60) + "…" : args.similarUrl;
+        text += theme.fg("accent", `similar: ${truncated}`);
+      } else {
+        const queryText = args.queries
+          ? args.queries.join(", ")
+          : args.query || "";
+        const truncated =
+          queryText.length > 60 ? queryText.slice(0, 60) + "…" : queryText;
+        text += theme.fg("accent", `"${truncated}"`);
+      }
       return new Text(text, 0, 0);
     },
 

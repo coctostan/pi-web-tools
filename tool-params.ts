@@ -8,6 +8,7 @@ const VALID_CATEGORIES = new Set([
   "people", "personal site", "financial report", "pdf",
 ]);
 const VALID_DETAIL_VALUES = new Set(["summary", "highlights"]);
+const FRESHNESS_MAP: Record<string, number | undefined> = { realtime: 0, day: 24, week: 168, any: undefined };
 
 export function normalizeWebSearchInput(params: {
   query?: unknown;
@@ -18,14 +19,20 @@ export function normalizeWebSearchInput(params: {
   includeDomains?: unknown;
   excludeDomains?: unknown;
   detail?: unknown;
+  freshness?: unknown;
+  similarUrl?: unknown;
 }) {
   const query = typeof params.query === "string" ? params.query : undefined;
   const queries = Array.isArray(params.queries)
     ? params.queries.filter((q): q is string => typeof q === "string")
     : undefined;
 
+  const similarUrl = typeof params.similarUrl === "string" && params.similarUrl ? params.similarUrl : undefined;
   const queryList = (queries && queries.length > 0) ? queries : (query ? [query] : []);
-  if (queryList.length === 0) {
+  if (queryList.length > 0 && similarUrl) {
+    throw new Error("'similarUrl' and 'query'/'queries' are mutually exclusive.");
+  }
+  if (queryList.length === 0 && !similarUrl) {
     throw new Error("Either 'query' or 'queries' must be provided.");
   }
 
@@ -53,7 +60,11 @@ export function normalizeWebSearchInput(params: {
     ? params.detail as "summary" | "highlights"
     : undefined;
 
-  return { queries: queryList, numResults, type, category, includeDomains, excludeDomains, detail };
+  const maxAgeHours = typeof params.freshness === "string" && params.freshness in FRESHNESS_MAP
+    ? FRESHNESS_MAP[params.freshness]
+    : undefined;
+
+  return { queries: queryList, numResults, type, category, includeDomains, excludeDomains, detail, maxAgeHours, similarUrl };
 }
 
 export function normalizeFetchContentInput(params: { url?: unknown; urls?: unknown; forceClone?: unknown; prompt?: unknown }) {

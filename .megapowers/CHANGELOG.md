@@ -27,3 +27,8 @@
 ### Removed (015)
 - Dead `sessionActive` variable from `index.ts` (was set but never read). (#007)
 - Stale `todo.md` from repository root. (#007)
+
+### Added (016)
+- `freshness` parameter on `web_search`: controls result recency via Exa's `maxAgeHours` field. Values: `"realtime"` (0h), `"day"` (24h), `"week"` (168h), `"any"` (no filter, default). Omitting the param sends no `maxAgeHours` to Exa — identical to previous behavior. (#008)
+- `similarUrl` parameter on `web_search`: finds pages similar to a given URL by routing to Exa's `POST /findSimilar` endpoint instead of `/search`. Mutually exclusive with `query`/`queries`. Returns the same `ExaSearchResult[]` format. (#009)
+- `findSimilarExa()` function in `exa-search.ts`: mirrors `searchExa` structure (retry, abort signal, result parser) but targets `/findSimilar` with a `url` body field instead of `query`. (#009)
