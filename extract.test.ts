@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { extractContent, extractHeadingTitle, fetchAllContent } from "./extract.js";
+import { extractContent, extractHeadingTitle, fetchAllContent, clearUrlCache } from "./extract.js";
 import type { ExtractedContent } from "./storage.js";
 
 describe("extract", () => {
@@ -12,6 +12,7 @@ describe("extract", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   describe("extractContent", () => {
@@ -28,6 +29,87 @@ describe("extract", () => {
       const result = await extractContent("https://example.com", controller.signal);
       expect(result.error).toBe("Aborted");
       expect(result.url).toBe("https://example.com");
+    });
+
+    it("returns cached result for same URL — single network request (no TTL check yet)", async () => {
+      const html = `<!DOCTYPE html><html><head><title>Cache Test</title></head><body>
+<article><h1>Cache Test</h1><p>${"body text ".repeat(100)}</p></article></body></html>`;
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({
+          "content-type": "text/html; charset=utf-8",
+          "content-length": String(html.length),
+        }),
+        text: async () => html,
+      });
+
+      const result1 = await extractContent("https://cache-dedup.example.com/page");
+      const result2 = await extractContent("https://cache-dedup.example.com/page");
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(result2.url).toBe(result1.url);
+      expect(result2.title).toBe(result1.title);
+      expect(result2.content).toBe(result1.content);
+    });
+
+    it("treats cached entry as stale after URL_CACHE_TTL_MS has elapsed", async () => {
+      const html = `<!DOCTYPE html><html><head><title>TTL Test</title></head><body>
+<article><h1>TTL Test</h1><p>${"body text ".repeat(300)}</p></article></body></html>`;
+
+      let now = 0;
+      vi.spyOn(Date, "now").mockImplementation(() => now);
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({
+          "content-type": "text/html; charset=utf-8",
+          "content-length": String(html.length),
+        }),
+        text: async () => html,
+      });
+
+      const url = "https://ttl-test.example.com/page";
+
+      // First fetch — caches result at now=0
+      now = 0;
+      await extractContent(url);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      // Advance time past TTL (30 min + 1 ms = 1_800_001 ms)
+      now = 1_800_001;
+      await extractContent(url);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("clearUrlCache() causes next call to make a fresh network request", async () => {
+      const html = `<!DOCTYPE html><html><head><title>Clear Test</title></head><body>
+<article><h1>Clear Test</h1><p>${"body text ".repeat(300)}</p></article></body></html>`;
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({
+          "content-type": "text/html; charset=utf-8",
+          "content-length": String(html.length),
+        }),
+        text: async () => html,
+      });
+
+      const url = "https://clear-cache.example.com/page";
+
+      // First fetch — caches result
+      await extractContent(url);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      // Clear the cache
+      clearUrlCache();
+
+      // Second fetch — cache miss, must re-fetch
+      await extractContent(url);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
 
     it("extracts readable HTML content", async () => {

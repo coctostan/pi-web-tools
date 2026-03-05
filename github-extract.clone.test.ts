@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   mode: "oversize" as "oversize" | "clone-fail" | "clone-throw" | "content-throw",
-  rmSync: vi.fn(),
+  rm: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("./config.js", () => ({
@@ -16,23 +16,28 @@ vi.mock("./config.js", () => ({
   }),
 }));
 
-vi.mock("node:fs", async () => {
-  const actual = await vi.importActual<any>("node:fs");
+vi.mock("node:fs/promises", async () => {
   return {
-    ...actual,
-    rmSync: state.rmSync,
-    existsSync: vi.fn(() => state.mode === "content-throw"),
-    statSync: vi.fn(() => {
+    rm: state.rm,
+    access: vi.fn(async () => {
+      if (state.mode === "content-throw") {
+        // File exists in content-throw mode
+        return;
+      }
+      throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+    }),
+    stat: vi.fn(async () => {
       if (state.mode === "content-throw") {
         throw new Error("stat exploded");
       }
       return { isDirectory: () => false, size: 0 };
     }),
-    readdirSync: vi.fn(() => []),
-    readFileSync: vi.fn(() => ""),
-    openSync: vi.fn(),
-    readSync: vi.fn(() => 0),
-    closeSync: vi.fn(),
+    readdir: vi.fn(async () => []),
+    readFile: vi.fn(async () => ""),
+    open: vi.fn(async () => ({
+      read: vi.fn(async () => ({ bytesRead: 0, buffer: Buffer.alloc(0) })),
+      close: vi.fn(async () => {}),
+    })),
   };
 });
 
@@ -69,7 +74,7 @@ vi.mock("node:child_process", () => ({
 describe("extractGitHub clone behavior", () => {
   beforeEach(() => {
     state.mode = "oversize";
-    state.rmSync.mockReset();
+    state.rm.mockReset();
     vi.resetModules();
   });
 
@@ -92,8 +97,9 @@ describe("extractGitHub clone behavior", () => {
 
     const expectedPath = "/tmp/pi-github-repos-test/owner/repo";
     const expectedOptions = { recursive: true, force: true };
-    const matchingCalls = state.rmSync.mock.calls.filter(
-      ([path, options]) => path === expectedPath && JSON.stringify(options) === JSON.stringify(expectedOptions)
+    const matchingCalls = state.rm.mock.calls.filter(
+      ([path, options]: [string, object]) =>
+        path === expectedPath && JSON.stringify(options) === JSON.stringify(expectedOptions)
     );
 
     expect(matchingCalls.length).toBeGreaterThan(1);
@@ -110,8 +116,9 @@ describe("extractGitHub clone behavior", () => {
 
     const expectedPath = "/tmp/pi-github-repos-test/owner/repo";
     const expectedOptions = { recursive: true, force: true };
-    const matchingCalls = state.rmSync.mock.calls.filter(
-      ([path, options]) => path === expectedPath && JSON.stringify(options) === JSON.stringify(expectedOptions)
+    const matchingCalls = state.rm.mock.calls.filter(
+      ([path, options]: [string, object]) =>
+        path === expectedPath && JSON.stringify(options) === JSON.stringify(expectedOptions)
     );
 
     expect(matchingCalls.length).toBeGreaterThan(1);
@@ -128,8 +135,9 @@ describe("extractGitHub clone behavior", () => {
 
     const expectedPath = "/tmp/pi-github-repos-test/owner/repo@main";
     const expectedOptions = { recursive: true, force: true };
-    const matchingCalls = state.rmSync.mock.calls.filter(
-      ([path, options]) => path === expectedPath && JSON.stringify(options) === JSON.stringify(expectedOptions)
+    const matchingCalls = state.rm.mock.calls.filter(
+      ([path, options]: [string, object]) =>
+        path === expectedPath && JSON.stringify(options) === JSON.stringify(expectedOptions)
     );
 
     expect(matchingCalls.length).toBeGreaterThan(1);

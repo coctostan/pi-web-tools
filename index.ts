@@ -4,7 +4,7 @@ import { Type } from "@sinclair/typebox";
 import { complete } from "@mariozechner/pi-ai";
 import pLimit from "p-limit";
 import { searchExa, formatSearchResults } from "./exa-search.js";
-import { extractContent, fetchAllContent } from "./extract.js";
+import { extractContent, fetchAllContent, clearUrlCache } from "./extract.js";
 import { extractGitHub, clearCloneCache, parseGitHubUrl } from "./github-extract.js";
 import { getConfig, resetConfigCache } from "./config.js";
 import { searchContext } from "./exa-context.js";
@@ -32,7 +32,6 @@ import {
 
 const MAX_INLINE_CONTENT = 30000;
 const pendingFetches = new Map<string, AbortController>();
-let sessionActive = false;
 
 // ---------------------------------------------------------------------------
 // Session event handlers
@@ -48,13 +47,12 @@ function abortAllPending(): void {
 function handleSessionStart(ctx: ExtensionContext): void {
   abortAllPending();
   clearCloneCache();
+  clearUrlCache();
   cleanupTempFiles();
-  sessionActive = true;
   restoreFromSession(ctx);
 }
 
 function handleSessionShutdown(): void {
-  sessionActive = false;
   abortAllPending();
   clearCloneCache();
   clearResults();
