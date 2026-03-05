@@ -216,6 +216,56 @@ describe("web_search detail passthrough", () => {
       expect.objectContaining({ detail: "highlights" })
     );
   });
+
+  it("batch queries run concurrently via p-limit(3)", async () => {
+    let seenConcurrency: number | undefined;
+    pLimitState.pLimitSpy.mockImplementation((concurrency: number) => {
+      seenConcurrency = concurrency;
+      return <T>(fn: () => Promise<T>) => fn();
+    });
+
+    exaState.searchExa.mockResolvedValue([
+      { title: "Result", url: "https://example.com", snippet: "test" },
+    ]);
+    exaState.formatSearchResults.mockReturnValue("formatted result");
+
+    const { webSearchTool } = await getWebSearchTool();
+    await webSearchTool.execute("call-batch", {
+      queries: ["query1", "query2", "query3"],
+    });
+
+    expect(pLimitState.pLimitSpy).toHaveBeenCalledWith(3);
+    expect(seenConcurrency).toBe(3);
+    expect(exaState.searchExa).toHaveBeenCalledTimes(3);
+  });
+
+  it("batch query partial failure reports error and continues other queries", async () => {
+    pLimitState.pLimitSpy.mockImplementation((_concurrency: number) => {
+      return <T>(fn: () => Promise<T>) => fn();
+    });
+
+    exaState.searchExa
+      .mockResolvedValueOnce([{ title: "Result 1", url: "https://example.com/1", snippet: "s1" }])
+      .mockRejectedValueOnce(new Error("Exa API error (503)"))
+      .mockResolvedValueOnce([{ title: "Result 3", url: "https://example.com/3", snippet: "s3" }]);
+
+    exaState.formatSearchResults
+      .mockReturnValueOnce("Result 1 formatted")
+      .mockReturnValueOnce("Result 3 formatted");
+
+    const { webSearchTool } = await getWebSearchTool();
+    const result = await webSearchTool.execute("call-partial", {
+      queries: ["q1", "q2", "q3"],
+    });
+
+    const text = getText(result);
+    expect(text).toContain("## Query: q1");
+    expect(text).toContain("Result 1 formatted");
+    expect(text).toContain("## Query: q2");
+    expect(text).toContain("Error: Exa API error (503)");
+    expect(text).toContain("## Query: q3");
+    expect(text).toContain("Result 3 formatted");
+  });
 });
 describe("fetch_content single-url prompt wiring", () => {
   beforeEach(() => {
@@ -534,6 +584,36 @@ describe("fetch_content file-first storage", () => {
     expect(text).toContain("/tmp/pi-web-file2.txt");
     expect(text).toContain("https://a.example/page");
     expect(text).toContain("https://b.example/page");
+  });
+
+  it("multi-URL fetch uses p-limit(3) for bounded concurrency", async () => {
+    let fetchPLimitConcurrency: number | undefined;
+    pLimitState.pLimitSpy.mockImplementation((concurrency: number) => {
+      fetchPLimitConcurrency = concurrency;
+      return <T>(fn: () => Promise<T>) => fn();
+    });
+
+    state.extractContent.mockImplementation(async (url: string) => ({
+      url,
+      title: `Title for ${url}`,
+      content: `Content for ${url}`,
+      error: null,
+    }));
+
+    const { fetchContentTool } = await getFetchContentTool();
+    const ctx = { modelRegistry: { find: vi.fn(), getApiKey: vi.fn() } } as any;
+
+    await fetchContentTool.execute(
+      "call-multi",
+      { urls: ["https://example.com/1", "https://example.com/2", "https://example.com/3"] },
+      undefined,
+      undefined,
+      ctx
+    );
+
+    expect(pLimitState.pLimitSpy).toHaveBeenCalledWith(3);
+    expect(fetchPLimitConcurrency).toBe(3);
+    expect(state.extractContent).toHaveBeenCalledTimes(3);
   });
 
   it("keeps single-url GitHub clone result inline (no file-first)", async () => {

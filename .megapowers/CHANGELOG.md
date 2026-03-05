@@ -11,3 +11,9 @@
 - `web_search` results now default to summary mode (~1-2K tokens per search vs. ~5-15K previously). Existing callers relying on highlights should pass `detail: "highlights"`. (#013)
 - `fetch_content` without `prompt` no longer inlines content up to 30K; always writes to a temp file and returns a preview + path. (#013)
 - `formatSearchResults()` no longer truncates snippets to 200 chars (summaries are already brief). (#013)
+
+### Added (014)
+- `retryFetch()` utility in `retry.ts`: wraps `fetch()` with exponential backoff (1s → 2s, max 2 retries). Retries on 429/500/502/503/504 and network errors (`TypeError: fetch failed`, `ECONNRESET`, `ETIMEDOUT`). Respects `AbortSignal` both before and during backoff waits. (#004)
+- `searchExa()` and `searchContext()` now use `retryFetch()` — transient Exa API failures silently recover without surfacing to the caller. (#004)
+- Batch `web_search` with multiple queries now executes them concurrently via `p-limit(3)` instead of sequentially; partial failures are isolated per query. (#005)
+- Multi-URL `fetch_content` now uses `p-limit(3)` for bounded concurrency instead of unbounded `Promise.all`. (#005)
