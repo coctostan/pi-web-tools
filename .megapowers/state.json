@@ -1,44 +1,44 @@
 {
   "version": 1,
-  "activeIssue": "012-haiku-filter-on-fetch-content",
+  "activeIssue": "013-lean-context-summary-search-file-first-s",
   "workflow": "feature",
   "phase": "done",
   "phaseHistory": [
     {
       "from": "brainstorm",
       "to": "spec",
-      "timestamp": 1772662023040
+      "timestamp": 1772668864594
     },
     {
       "from": "spec",
       "to": "plan",
-      "timestamp": 1772662101547
+      "timestamp": 1772669041532
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1772665681993
+      "timestamp": 1772675198013
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1772666629851
+      "timestamp": 1772676620635
     },
     {
       "from": "verify",
       "to": "code-review",
-      "timestamp": 1772666833839
+      "timestamp": 1772676884295
     },
     {
       "from": "code-review",
       "to": "done",
-      "timestamp": 1772667050995
+      "timestamp": 1772677278939
     }
   ],
   "reviewApproved": false,
   "planMode": null,
-  "planIteration": 3,
-  "currentTaskIndex": 9,
+  "planIteration": 4,
+  "currentTaskIndex": 19,
   "completedTasks": [
     1,
     2,
@@ -49,7 +49,17 @@
     7,
     8,
     9,
-    10
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20
   ],
   "tddTaskState": null,
   "doneActions": [
@@ -61,6 +71,6 @@
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "feat/012-haiku-filter-on-fetch-content",
-  "baseBranch": "main"
+  "branchName": "feat/013-lean-context-summary-search-file-first-s",
+  "baseBranch": "feat/012-haiku-filter-on-fetch-content"
 }

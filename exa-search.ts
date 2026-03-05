@@ -13,6 +13,7 @@ export interface ExaSearchOptions {
   includeDomains?: string[];
   excludeDomains?: string[];
   signal?: AbortSignal;
+  detail?: "summary" | "highlights";
 }
 
 const EXA_API_URL = "https://api.exa.ai/search";
@@ -24,6 +25,7 @@ type ExaRawResult = {
   url?: unknown;
   text?: unknown;
   highlights?: unknown;
+  summary?: unknown;
   publishedDate?: unknown;
 };
 
@@ -51,11 +53,13 @@ function parseExaResults(data: unknown): ExaSearchResult[] {
       title: typeof r.title === "string" ? r.title : "",
       url: typeof r.url === "string" ? r.url : "",
       snippet: (() => {
+        if (typeof r.summary === "string" && r.summary) return r.summary;
         if (Array.isArray(r.highlights)) {
           const joined = r.highlights.filter((h): h is string => typeof h === "string").join(" ");
           if (joined) return joined;
         }
-        return typeof r.text === "string" ? r.text : "";
+        if (typeof r.text === "string") return r.text;
+        return "";
       })(),
       publishedDate: typeof r.publishedDate === "string" ? r.publishedDate : undefined,
     };
@@ -80,7 +84,9 @@ export async function searchExa(query: string, options: ExaSearchOptions): Promi
   const requestBody: Record<string, unknown> = {
     query,
     numResults,
-    contents: { highlights: { numSentences: 3, highlightsPerUrl: 3 } },
+    contents: options.detail === "highlights"
+      ? { highlights: { numSentences: 3, highlightsPerUrl: 3 } }
+      : { summary: true },
   };
 
   // Pass type through directly; "auto" -> omit (Exa default)
@@ -139,8 +145,7 @@ export function formatSearchResults(results: ExaSearchResult[]): string {
         parts.push(`   Date: ${r.publishedDate}`);
       }
       parts.push(`   ${r.url}`);
-      const preview = r.snippet.length > 200 ? r.snippet.slice(0, 200) + "…" : r.snippet;
-      parts.push(`   ${preview}`);
+      parts.push(`   ${r.snippet}`);
       return parts.join("\n");
     })
     .join("\n\n");

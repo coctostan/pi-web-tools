@@ -8,6 +8,7 @@ import {
   cleanupTempFiles,
   FILE_OFFLOAD_THRESHOLD,
   PREVIEW_SIZE,
+  FILE_FIRST_PREVIEW_SIZE,
 } from "./offload.js";
 
 describe("offload", () => {
@@ -78,5 +79,9 @@ describe("offload", () => {
   it("exports expected constants", () => {
     expect(FILE_OFFLOAD_THRESHOLD).toBe(30_000);
     expect(PREVIEW_SIZE).toBe(2_000);
+  });
+
+  it("exports FILE_FIRST_PREVIEW_SIZE as 500", () => {
+    expect(FILE_FIRST_PREVIEW_SIZE).toBe(500);
   });
 });
