@@ -1,3 +1,5 @@
+import { retryFetch } from "./retry.js";
+
 export interface ExaSearchResult {
   title: string;
   url: string;
@@ -107,7 +109,7 @@ export async function searchExa(query: string, options: ExaSearchOptions): Promi
 
   let response: Response;
   try {
-    response = await fetch(EXA_API_URL, {
+    response = await retryFetch(EXA_API_URL, {
       method: "POST",
       headers: {
         "x-api-key": options.apiKey,

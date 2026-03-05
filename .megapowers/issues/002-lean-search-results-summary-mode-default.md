@@ -1,7 +1,7 @@
 ---
 id: 2
 type: feature
-status: open
+status: done
 created: 2026-03-04T21:48:37.799Z
 milestone: v2.0
 priority: 1

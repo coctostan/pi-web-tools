@@ -1,3 +1,5 @@
+import { retryFetch } from "./retry.js";
+
 export interface ExaContextResult {
   query: string;
   content: string;
@@ -32,7 +34,7 @@ export async function searchContext(query: string, options: ExaContextOptions): 
 
   let response: Response;
   try {
-    response = await fetch(EXA_CONTEXT_URL, {
+    response = await retryFetch(EXA_CONTEXT_URL, {
       method: "POST",
       headers: {
         "x-api-key": options.apiKey,

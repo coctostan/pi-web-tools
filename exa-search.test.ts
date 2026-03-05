@@ -116,15 +116,21 @@ describe("exa-search", () => {
     });
 
     it("handles API errors with status code in message", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 429,
-        text: async () => "Rate limit exceeded. Please try again later.",
-      });
-
-      await expect(
-        searchExa("test query", { apiKey: "test-key" })
-      ).rejects.toThrow("429");
+      vi.useFakeTimers();
+      try {
+        mockFetch.mockResolvedValue({
+          ok: false,
+          status: 429,
+          text: async () => "Rate limit exceeded. Please try again later.",
+        });
+        const promise = expect(
+          searchExa("test query", { apiKey: "test-key" })
+        ).rejects.toThrow("429");
+        await vi.advanceTimersByTimeAsync(3000); // exhaust 2 retries (1s + 2s backoff)
+        await promise;
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it("respects numResults parameter", async () => {
@@ -391,6 +397,48 @@ describe("exa-search", () => {
       await expect(searchExa("hello world", { apiKey: "key" }))
         .rejects
         .toThrow(/Exa request failed.*hello world/i);
+    });
+  });
+
+  describe("retry integration", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+    it("retries on 429 and succeeds", async () => {
+      mockFetch
+        .mockResolvedValueOnce({ ok: false, status: 429, text: async () => "rate limited" })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            results: [{ title: "Result", url: "https://example.com", summary: "A result" }],
+          }),
+        });
+
+      const promise = searchExa("test query", { apiKey: "test-key" });
+      await vi.advanceTimersByTimeAsync(1000);
+      const results = await promise;
+      expect(results).toHaveLength(1);
+      expect(results[0].title).toBe("Result");
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+    it("retries on 503 and succeeds", async () => {
+      mockFetch
+        .mockResolvedValueOnce({ ok: false, status: 503, text: async () => "service unavailable" })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            results: [{ title: "Result", url: "https://example.com", summary: "A result" }],
+          }),
+        });
+
+      const promise = searchExa("test query", { apiKey: "test-key" });
+      await vi.advanceTimersByTimeAsync(1000);
+      const results = await promise;
+      expect(results).toHaveLength(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });
 });

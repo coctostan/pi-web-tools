@@ -1,44 +1,44 @@
 {
   "version": 1,
-  "activeIssue": "013-lean-context-summary-search-file-first-s",
+  "activeIssue": "014-network-resilience-retry-parallel-batch",
   "workflow": "feature",
   "phase": "done",
   "phaseHistory": [
     {
       "from": "brainstorm",
       "to": "spec",
-      "timestamp": 1772668864594
+      "timestamp": 1772725763201
     },
     {
       "from": "spec",
       "to": "plan",
-      "timestamp": 1772669041532
+      "timestamp": 1772726679853
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1772675198013
+      "timestamp": 1772729967007
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1772676620635
+      "timestamp": 1772731220476
     },
     {
       "from": "verify",
       "to": "code-review",
-      "timestamp": 1772676884295
+      "timestamp": 1772731721288
     },
     {
       "from": "code-review",
       "to": "done",
-      "timestamp": 1772677278939
+      "timestamp": 1772732117280
     }
   ],
   "reviewApproved": false,
   "planMode": null,
-  "planIteration": 4,
-  "currentTaskIndex": 19,
+  "planIteration": 3,
+  "currentTaskIndex": 7,
   "completedTasks": [
     1,
     2,
@@ -47,21 +47,13 @@
     5,
     6,
     7,
-    8,
-    9,
-    10,
-    11,
-    12,
-    13,
-    14,
-    15,
-    16,
-    17,
-    18,
-    19,
-    20
+    8
   ],
-  "tddTaskState": null,
+  "tddTaskState": {
+    "taskIndex": 8,
+    "state": "test-written",
+    "skipped": false
+  },
   "doneActions": [
     "generate-docs",
     "write-changelog",
@@ -71,6 +63,6 @@
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "feat/013-lean-context-summary-search-file-first-s",
-  "baseBranch": "feat/012-haiku-filter-on-fetch-content"
+  "branchName": "feat/014-network-resilience-retry-parallel-batch",
+  "baseBranch": "feat/013-lean-context-summary-search-file-first-s"
 }

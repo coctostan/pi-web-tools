@@ -72,6 +72,43 @@ describe("exa-context", () => {
     await expect(searchContext("test", { apiKey: "key" })).rejects.toThrow("400");
   });
 
+  describe("retry integration", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+  it("retries on 429 and succeeds", async () => {
+      mockFetch
+        .mockResolvedValueOnce({ ok: false, status: 429, text: async () => "rate limited" })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ response: "some markdown content" }),
+        });
+
+      const promise = searchContext("test query", { apiKey: "test-key" });
+      await vi.advanceTimersByTimeAsync(1000);
+      const result = await promise;
+      expect(result.content).toBe("some markdown content");
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+  it("retries on network error and succeeds", async () => {
+      mockFetch
+        .mockRejectedValueOnce(new TypeError("fetch failed"))
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ response: "recovered content" }),
+        });
+
+      const promise = searchContext("test query", { apiKey: "test-key" });
+      await vi.advanceTimersByTimeAsync(1000);
+      const result = await promise;
+      expect(result.content).toBe("recovered content");
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it("wraps network errors with query context", async () => {
     mockFetch.mockRejectedValueOnce(new Error("ENOTFOUND"));
 
