@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 
 export const FILE_OFFLOAD_THRESHOLD = 30_000;
 export const PREVIEW_SIZE = 2_000;
+export const FILE_FIRST_PREVIEW_SIZE = 500;
 
 const trackedFiles: Set<string> = new Set();
 
