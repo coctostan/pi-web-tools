@@ -4,10 +4,26 @@ import TurndownService from "turndown";
 import pLimit from "p-limit";
 import { PDFParse } from "pdf-parse";
 import type { ExtractedContent } from "./storage.js";
+import { HTTP_FETCH_TIMEOUT_MS, URL_CACHE_TTL_MS } from "./constants.js";
 
 export type { ExtractedContent };
 
 const NON_RECOVERABLE_ERRORS = ["Unsupported content type", "Response too large"];
+
+// ---------------------------------------------------------------------------
+// URL cache (session-scoped, cleared via clearUrlCache on session start)
+// ---------------------------------------------------------------------------
+
+interface UrlCacheEntry {
+  result: ExtractedContent;
+  fetchedAt: number;
+}
+
+const urlCache = new Map<string, UrlCacheEntry>();
+
+export function clearUrlCache(): void {
+  urlCache.clear();
+}
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -59,8 +75,8 @@ async function extractViaHttp(
   signal?: AbortSignal
 ): Promise<ExtractedContent> {
   const combinedSignal = signal
-    ? AbortSignal.any([signal, AbortSignal.timeout(30000)])
-    : AbortSignal.timeout(30000);
+    ? AbortSignal.any([signal, AbortSignal.timeout(HTTP_FETCH_TIMEOUT_MS)])
+    : AbortSignal.timeout(HTTP_FETCH_TIMEOUT_MS);
 
   let response: Response;
   try {
@@ -171,8 +187,8 @@ async function extractViaJina(
   try {
     const jinaUrl = `https://r.jina.ai/${url}`;
     const combinedSignal = signal
-      ? AbortSignal.any([signal, AbortSignal.timeout(30000)])
-      : AbortSignal.timeout(30000);
+      ? AbortSignal.any([signal, AbortSignal.timeout(HTTP_FETCH_TIMEOUT_MS)])
+      : AbortSignal.timeout(HTTP_FETCH_TIMEOUT_MS);
 
     const response = await fetch(jinaUrl, {
       headers: {
@@ -211,7 +227,6 @@ export async function extractContent(
   if (signal?.aborted) {
     return makeErrorResult(url, "Aborted");
   }
-
   // Validate URL
   try {
     new URL(url);
@@ -219,25 +234,31 @@ export async function extractContent(
     return makeErrorResult(url, "Invalid URL");
   }
 
+  // Check cache with TTL
+  const cached = urlCache.get(url);
+  if (cached && Date.now() - cached.fetchedAt < URL_CACHE_TTL_MS) return cached.result;
   let httpResult: ExtractedContent;
   let httpError: string | null = null;
-
   try {
     httpResult = await extractViaHttp(url, signal);
-    // If no error, return directly
-    if (!httpResult.error) return httpResult;
-    // If non-recoverable, return directly
+    // If no error, cache and return
+    if (!httpResult.error) {
+      urlCache.set(url, { result: httpResult, fetchedAt: Date.now() });
+      return httpResult;
+    }
+    // If non-recoverable, return directly (don't cache errors)
     if (NON_RECOVERABLE_ERRORS.includes(httpResult.error)) return httpResult;
     // Recoverable error — try Jina
     httpError = httpResult.error;
   } catch (err: unknown) {
     httpError = err instanceof Error ? err.message : String(err);
   }
-
   // Try Jina fallback
   const jinaResult = await extractViaJina(url, signal);
-  if (jinaResult) return jinaResult;
-
+  if (jinaResult) {
+    urlCache.set(url, { result: jinaResult, fetchedAt: Date.now() });
+    return jinaResult;
+  }
   // Jina also failed — return original error with helpful message
   const errorMsg = httpError
     ? `${httpError}. Jina Reader fallback also failed.`

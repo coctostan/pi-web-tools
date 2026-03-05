@@ -17,3 +17,15 @@
 - `searchExa()` and `searchContext()` now use `retryFetch()` — transient Exa API failures silently recover without surfacing to the caller. (#004)
 - Batch `web_search` with multiple queries now executes them concurrently via `p-limit(3)` instead of sequentially; partial failures are isolated per query. (#005)
 - Multi-URL `fetch_content` now uses `p-limit(3)` for bounded concurrency instead of unbounded `Promise.all`. (#005)
+
+### Added (015)
+- Session-scoped URL cache in `extractContent()`: same URL fetched twice within 30 minutes returns the cached result — zero additional network requests. Cache is cleared on every session start (`session_start`, `session_switch`, `session_fork`, `session_tree`). (#006)
+- `clearUrlCache()` export from `extract.ts` for explicit cache invalidation. (#006)
+- `constants.ts` with `HTTP_FETCH_TIMEOUT_MS` (30 s) and `URL_CACHE_TTL_MS` (30 min), replacing magic `30000` literals in `extract.ts`. (#007)
+
+### Changed (015)
+- `github-extract.ts` converted from synchronous `fs` (`existsSync`, `readFileSync`, `statSync`, `readdirSync`, `rmSync`, `openSync`, `readSync`, `closeSync`) to `fs.promises` equivalents — no more event-loop blocking during repo traversal. (#007)
+
+### Removed (015)
+- Dead `sessionActive` variable from `index.ts` (was set but never read). (#007)
+- Stale `todo.md` from repository root. (#007)

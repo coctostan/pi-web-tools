@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({
   extractContent: vi.fn(),
   filterContent: vi.fn(),
+  clearUrlCache: vi.fn(),
 }));
 
 const pLimitState = vi.hoisted(() => ({
@@ -69,6 +70,7 @@ vi.mock("./github-extract.js", () => ({
 vi.mock("./extract.js", () => ({
   extractContent: state.extractContent,
   fetchAllContent: vi.fn(),
+  clearUrlCache: state.clearUrlCache,
 }));
 
 vi.mock("./filter.js", () => ({
@@ -180,6 +182,39 @@ async function getToolResultHandler() {
   if (!handler) throw new Error("tool_result handler not registered");
   return handler;
 }
+
+async function getSessionHandlers() {
+  vi.resetModules();
+  const handlers = new Map<string, any>();
+  const pi = {
+    on: vi.fn((event: string, handler: any) => handlers.set(event, handler)),
+    registerTool: vi.fn(),
+    appendEntry: vi.fn(),
+  };
+  const { default: registerExtension } = await import("./index.js");
+  registerExtension(pi as any);
+  return handlers;
+}
+
+describe("session lifecycle", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("calls clearUrlCache on session_start", async () => {
+    const handlers = await getSessionHandlers();
+    const handler = handlers.get("session_start");
+    expect(handler).toBeDefined();
+    const ctx = {
+      sessionManager: {
+        getEntries: () => [],
+      },
+    };
+
+    await handler({}, ctx as any);
+    expect(state.clearUrlCache).toHaveBeenCalled();
+  });
+});
 
 function getText(result: any): string {
   const first = result?.content?.[0];
