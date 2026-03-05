@@ -90,6 +90,45 @@ describe("tool-params", () => {
     expect(normalizeWebSearchInput({ query: "x", detail: "" }).detail).toBeUndefined();
   });
 
+  it("normalizeWebSearchInput maps freshness 'realtime' to maxAgeHours 0", () => {
+    const result = normalizeWebSearchInput({ query: "x", freshness: "realtime" });
+    expect(result.maxAgeHours).toBe(0);
+  });
+
+  it("normalizeWebSearchInput maps freshness 'day' to maxAgeHours 24", () => {
+    const result = normalizeWebSearchInput({ query: "x", freshness: "day" });
+    expect(result.maxAgeHours).toBe(24);
+  });
+
+  it("normalizeWebSearchInput maps freshness 'week' to maxAgeHours 168", () => {
+    const result = normalizeWebSearchInput({ query: "x", freshness: "week" });
+    expect(result.maxAgeHours).toBe(168);
+  });
+
+  it("normalizeWebSearchInput maps freshness 'any' to no maxAgeHours", () => {
+    const result = normalizeWebSearchInput({ query: "x", freshness: "any" });
+    expect(result.maxAgeHours).toBeUndefined();
+  });
+
+  it("normalizeWebSearchInput omits maxAgeHours when freshness not provided", () => {
+    const result = normalizeWebSearchInput({ query: "x" });
+    expect(result.maxAgeHours).toBeUndefined();
+  });
+
+  it("normalizeWebSearchInput accepts similarUrl without query", () => {
+    const result = normalizeWebSearchInput({ similarUrl: "https://example.com" });
+    expect(result.similarUrl).toBe("https://example.com");
+    expect(result.queries).toEqual([]);
+  });
+
+  it("normalizeWebSearchInput throws when both query and similarUrl are provided", () => {
+    expect(() => normalizeWebSearchInput({ query: "foo", similarUrl: "https://example.com" })).toThrow(/mutually exclusive/i);
+  });
+
+  it("normalizeWebSearchInput still throws when neither query nor similarUrl provided", () => {
+    expect(() => normalizeWebSearchInput({})).toThrow(/Either 'query' or 'queries'/i);
+  });
+
   it("normalizeCodeSearchInput requires query", () => {
     expect(() => normalizeCodeSearchInput({})).toThrow(/'query' must be provided/);
   });

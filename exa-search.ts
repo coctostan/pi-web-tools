@@ -16,9 +16,11 @@ export interface ExaSearchOptions {
   excludeDomains?: string[];
   signal?: AbortSignal;
   detail?: "summary" | "highlights";
+  maxAgeHours?: number;
 }
 
 const EXA_API_URL = "https://api.exa.ai/search";
+const EXA_FIND_SIMILAR_URL = "https://api.exa.ai/findSimilar";
 const DEFAULT_NUM_RESULTS = 5;
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -104,6 +106,9 @@ export async function searchExa(query: string, options: ExaSearchOptions): Promi
   if (options.excludeDomains && options.excludeDomains.length > 0) {
     requestBody.excludeDomains = options.excludeDomains;
   }
+  if (options.maxAgeHours !== undefined) {
+    requestBody.maxAgeHours = options.maxAgeHours;
+  }
 
   const body = JSON.stringify(requestBody);
 
@@ -121,6 +126,58 @@ export async function searchExa(query: string, options: ExaSearchOptions): Promi
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`Exa request failed for query "${query}": ${msg}`);
+  }
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(
+      `Exa API error (${response.status}): ${errorBody.slice(0, 300)}`
+    );
+  }
+
+  const data = await response.json();
+  return parseExaResults(data);
+}
+
+export async function findSimilarExa(url: string, options: ExaSearchOptions): Promise<ExaSearchResult[]> {
+  if (options.apiKey === null) {
+    throw new Error(
+      "Exa API key not configured. Set the EXA_API_KEY environment variable or add \"exaApiKey\" to ~/.pi/web-tools.json"
+    );
+  }
+
+  const numResults = options.numResults ?? DEFAULT_NUM_RESULTS;
+
+  const signals: AbortSignal[] = [AbortSignal.timeout(DEFAULT_TIMEOUT_MS)];
+  if (options.signal) {
+    signals.push(options.signal);
+  }
+  const signal = AbortSignal.any(signals);
+
+  const requestBody: Record<string, unknown> = {
+    url,
+    numResults,
+    contents: options.detail === "highlights"
+      ? { highlights: { numSentences: 3, highlightsPerUrl: 3 } }
+      : { summary: true },
+  };
+
+  const body = JSON.stringify(requestBody);
+
+  let response: Response;
+  try {
+    response = await retryFetch(EXA_FIND_SIMILAR_URL, {
+      method: "POST",
+      headers: {
+        "x-api-key": options.apiKey,
+        "Content-Type": "application/json",
+      },
+      body,
+      signal,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`Exa findSimilar request failed for url "${url}": ${msg}`);
   }
 
   if (!response.ok) {

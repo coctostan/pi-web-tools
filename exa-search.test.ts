@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { searchExa, formatSearchResults, type ExaSearchResult } from "./exa-search.js";
+import { searchExa, findSimilarExa, formatSearchResults, type ExaSearchResult } from "./exa-search.js";
 
 describe("exa-search", () => {
   const mockFetch = vi.fn();
@@ -249,6 +249,30 @@ describe("exa-search", () => {
       expect(body.excludeDomains).toEqual(["pinterest.com"]);
     });
 
+    it("includes maxAgeHours in request body when provided", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+
+      await searchExa("test", { apiKey: "key", maxAgeHours: 24 });
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.maxAgeHours).toBe(24);
+    });
+
+    it("omits maxAgeHours from request body when not provided", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+
+      await searchExa("test", { apiKey: "key" });
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.maxAgeHours).toBeUndefined();
+    });
+
     it("uses highlights content mode with numSentences 3 and highlightsPerUrl 3", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -439,6 +463,91 @@ describe("exa-search", () => {
       const results = await promise;
       expect(results).toHaveLength(1);
       expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("findSimilarExa", () => {
+    it("sends POST to /findSimilar endpoint", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+
+      await findSimilarExa("https://example.com", { apiKey: "key" });
+
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://api.exa.ai/findSimilar");
+      expect(init.method).toBe("POST");
+    });
+
+    it("request body includes url field (not query)", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+
+      await findSimilarExa("https://example.com", { apiKey: "key" });
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.url).toBe("https://example.com");
+      expect(body.query).toBeUndefined();
+    });
+
+    it("returns ExaSearchResult[] with title, url, snippet", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          results: [
+            {
+              title: "Similar Page",
+              url: "https://similar.com",
+              summary: "A similar page.",
+              publishedDate: "2025-03-01",
+            },
+          ],
+        }),
+      });
+
+      const results = await findSimilarExa("https://example.com", { apiKey: "key" });
+
+      expect(results).toHaveLength(1);
+      expect(results[0]).toEqual({
+        title: "Similar Page",
+        url: "https://similar.com",
+        snippet: "A similar page.",
+        publishedDate: "2025-03-01",
+      });
+    });
+  });
+  describe("findSimilarExa error paths", () => {
+    it("throws when apiKey is null", async () => {
+      await expect(findSimilarExa("https://example.com", { apiKey: null })).rejects.toThrow("EXA_API_KEY");
+      await expect(findSimilarExa("https://example.com", { apiKey: null })).rejects.toThrow("web-tools.json");
+    });
+
+    it("throws when fetch fails with a network error", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("Network failure"));
+      await expect(findSimilarExa("https://example.com", { apiKey: "key" })).rejects.toThrow(
+        `Exa findSimilar request failed for url "https://example.com": Network failure`
+      );
+    });
+
+    it("throws on non-ok HTTP response with status code", async () => {
+      vi.useFakeTimers();
+      try {
+        mockFetch.mockResolvedValue({
+          ok: false,
+          status: 401,
+          text: async () => "Unauthorized",
+        });
+        const promise = expect(
+          findSimilarExa("https://example.com", { apiKey: "key" })
+        ).rejects.toThrow("401");
+        await vi.advanceTimersByTimeAsync(3000);
+        await promise;
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });
