@@ -7,6 +7,7 @@ const VALID_CATEGORIES = new Set([
   "company", "research paper", "news", "tweet",
   "people", "personal site", "financial report", "pdf",
 ]);
+const VALID_DETAIL_VALUES = new Set(["summary", "highlights"]);
 
 export function normalizeWebSearchInput(params: {
   query?: unknown;
@@ -16,6 +17,7 @@ export function normalizeWebSearchInput(params: {
   category?: unknown;
   includeDomains?: unknown;
   excludeDomains?: unknown;
+  detail?: unknown;
 }) {
   const query = typeof params.query === "string" ? params.query : undefined;
   const queries = Array.isArray(params.queries)
@@ -47,7 +49,11 @@ export function normalizeWebSearchInput(params: {
     ? params.excludeDomains.filter((d): d is string => typeof d === "string")
     : undefined;
 
-  return { queries: queryList, numResults, type, category, includeDomains, excludeDomains };
+  const detail = typeof params.detail === "string" && VALID_DETAIL_VALUES.has(params.detail)
+    ? params.detail as "summary" | "highlights"
+    : undefined;
+
+  return { queries: queryList, numResults, type, category, includeDomains, excludeDomains, detail };
 }
 
 export function normalizeFetchContentInput(params: { url?: unknown; urls?: unknown; forceClone?: unknown; prompt?: unknown }) {
