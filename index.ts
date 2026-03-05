@@ -16,7 +16,7 @@ import {
   normalizeGetSearchContentInput,
 } from "./tool-params.js";
 import { truncateContent } from "./truncation.js";
-import { shouldOffload, offloadToFile, buildOffloadResult, cleanupTempFiles } from "./offload.js";
+import { shouldOffload, offloadToFile, buildOffloadResult, cleanupTempFiles, FILE_FIRST_PREVIEW_SIZE } from "./offload.js";
 import {
   generateId,
   storeResult,
@@ -87,6 +87,10 @@ const WebSearchParams = Type.Object({
   ], { description: "Filter by content category" })),
   includeDomains: Type.Optional(Type.Array(Type.String(), { description: 'Only include these domains (e.g. ["github.com"])' })),
   excludeDomains: Type.Optional(Type.Array(Type.String(), { description: 'Exclude these domains (e.g. ["pinterest.com"])' })),
+  detail: Type.Optional(Type.Union([
+    Type.Literal("summary"),
+    Type.Literal("highlights"),
+  ], { description: 'Detail level: "summary" (default) or "highlights"' })),
 });
 
 const FetchContentParams = Type.Object({
@@ -168,11 +172,11 @@ export default function (pi: ExtensionAPI) {
     name: "web_search",
     label: "Web Search",
     description:
-      "Search the web for pages matching a query. Returns highlights (short relevant excerpts), not full page content. Use `fetch_content` to read a page in full. Supports batch searching with multiple queries.",
+      "Search the web for pages matching a query. Returns summaries by default (~1 line per result). Use `detail: \"highlights\"` for longer excerpts. Use `fetch_content` to read a page in full. Supports batch searching with multiple queries.",
     parameters: WebSearchParams,
 
     async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
-      const { queries: queryList, numResults, type, category, includeDomains, excludeDomains } = normalizeWebSearchInput(params);
+      const { queries: queryList, numResults, type, category, includeDomains, excludeDomains, detail } = normalizeWebSearchInput(params);
 
       const config = getConfig();
       const abortController = new AbortController();
@@ -198,6 +202,7 @@ export default function (pi: ExtensionAPI) {
               includeDomains,
               excludeDomains,
               signal: combinedSignal,
+              detail,
             });
             const formatted = formatSearchResults(searchResults);
             results.push({
@@ -321,7 +326,7 @@ export default function (pi: ExtensionAPI) {
     name: "fetch_content",
     label: "Fetch Content",
     description:
-      "Fetch URL(s) and extract readable content as markdown. Supports GitHub repository contents (clone + tree). Content is stored and can be retrieved with get_search_content if truncated.\n\nFor focused answers, use the `prompt` parameter with a specific question — the content will be filtered through a cheap model and only the relevant answer returned (~200-1000 chars instead of full page content).",
+      "Fetch URL(s) and extract readable content as markdown. Supports GitHub repository contents (clone + tree). Content is stored and can be retrieved with get_search_content if truncated.\n\nFor focused answers, use the `prompt` parameter with a specific question — the content will be filtered through a cheap model and only the relevant answer returned (~200-1000 chars instead of full page content).\n\nRaw fetches (without `prompt`) return a preview + file path. Use `read` to explore the full content selectively.",
     parameters: FetchContentParams,
 
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
@@ -335,13 +340,18 @@ export default function (pi: ExtensionAPI) {
         ? AbortSignal.any([signal, abortController.signal])
         : abortController.signal;
 
+      const githubCloneUrls = new Set<string>();
+
       try {
         const fetchOne = async (targetUrl: string): Promise<ExtractedContent> => {
           // Check if it's a GitHub URL
           const ghInfo = parseGitHubUrl(targetUrl);
           if (ghInfo) {
             const ghResult = await extractGitHub(targetUrl, combinedSignal, forceClone);
-            if (ghResult) return ghResult;
+            if (ghResult) {
+              githubCloneUrls.add(ghResult.url);
+              return ghResult;
+            }
             // Fall through to normal extraction if GitHub extraction returns null
           }
           return extractContent(targetUrl, combinedSignal);
@@ -402,44 +412,96 @@ export default function (pi: ExtensionAPI) {
               ? "No filter model available. Returning raw content."
               : filterResult.reason;
 
-            let text = `⚠ ${reason}\n\n# ${r.title}\n\n${r.content}`;
-            let truncated = false;
+            const fullText = `⚠ ${reason}\n\n# ${r.title}\n\n${r.content}`;
+            try {
+              const filePath = offloadToFile(fullText);
+              const preview = fullText.slice(0, FILE_FIRST_PREVIEW_SIZE);
+              return {
+                content: [{
+                  type: "text",
+                  text: [
+                    `# ${r.title}`,
+                    `Source: ${r.url}`,
+                    `⚠ ${reason}`,
+                    "",
+                    `${preview}${fullText.length > FILE_FIRST_PREVIEW_SIZE ? "..." : ""}`,
+                    "",
+                    `Full content saved to ${filePath} (${fullText.length} chars). Use \`read\` to explore further.`,
+                  ].join("\n"),
+                }],
+                details: {
+                  responseId,
+                  url: r.url,
+                  title: r.title,
+                  charCount: r.content.length,
+                  filtered: false,
+                  filePath,
+                },
+              };
+            } catch {
+              return {
+                content: [{ type: "text", text: `⚠ Could not write temp file. Returning inline.\n\n${fullText}` }],
+                details: {
+                  responseId,
+                  url: r.url,
+                  title: r.title,
+                  charCount: r.content.length,
+                  filtered: false,
+                  fileFirstFailed: true,
+                },
+              };
+          }
+          }
 
-            if (text.length > MAX_INLINE_CONTENT) {
-              text = text.slice(0, MAX_INLINE_CONTENT);
-              text += `\n\n[Content truncated at ${MAX_INLINE_CONTENT} chars. Use get_search_content with responseId "${responseId}" to retrieve full content.]`;
-              truncated = true;
-            }
-
+          const isGitHubCloneResult = githubCloneUrls.has(r.url);
+          if (isGitHubCloneResult) {
             return {
-              content: [{ type: "text", text }],
+              content: [{ type: "text", text: `# ${r.title}\n\n${r.content}` }],
               details: {
                 responseId,
                 url: r.url,
                 title: r.title,
                 charCount: r.content.length,
-                truncated,
-                filtered: false,
               },
             };
           }
-          let text = `# ${r.title}\n\n${r.content}`;
-          let truncated = false;
-
-          if (text.length > MAX_INLINE_CONTENT) {
-            text = text.slice(0, MAX_INLINE_CONTENT);
-            text += `\n\n[Content truncated at ${MAX_INLINE_CONTENT} chars. Use get_search_content with responseId "${responseId}" to retrieve full content.]`;
-            truncated = true;
+          // File-first: write raw content to temp file, return preview + path
+          const fullText = `# ${r.title}\n\n${r.content}`;
+          let filePath: string;
+          try {
+            filePath = offloadToFile(fullText);
+          } catch {
+            // Disk error fallback: return inline with warning
+            return {
+              content: [{ type: "text", text: `⚠ Could not write temp file. Returning inline.\n\n${fullText}` }],
+              details: {
+                responseId,
+                url: r.url,
+                title: r.title,
+                charCount: r.content.length,
+                fileFirstFailed: true,
+              },
+            };
           }
 
+          const preview = fullText.slice(0, FILE_FIRST_PREVIEW_SIZE);
+          const previewText = [
+            `# ${r.title}`,
+            `Source: ${r.url}`,
+            ``,
+            `${preview}`,
+            fullText.length > FILE_FIRST_PREVIEW_SIZE ? "\n..." : "",
+            ``,
+            `Full content saved to ${filePath} (${fullText.length} chars). Use \`read\` to explore further.`,
+          ].join("\n");
           return {
-            content: [{ type: "text", text }],
+            content: [{ type: "text", text: previewText }],
             details: {
               responseId,
               url: r.url,
               title: r.title,
               charCount: r.content.length,
-              truncated,
+              filePath,
             },
           };
         }
@@ -471,12 +533,22 @@ export default function (pi: ExtensionAPI) {
                   ? "No filter model available. Returning raw content."
                   : filterResult.reason;
 
-                let fallbackText = `⚠ ${reason}\n\n# ${r.title}\n\n${r.content}`;
-                if (fallbackText.length > MAX_INLINE_CONTENT) {
-                  fallbackText = fallbackText.slice(0, MAX_INLINE_CONTENT);
-                  fallbackText += `\n\n[Content truncated. Use get_search_content with responseId "${responseId}" and url "${r.url}" for full content.]`;
+                const fullText = `⚠ ${reason}\n\n# ${r.title}\n\n${r.content}`;
+                try {
+                  const filePath = offloadToFile(fullText);
+                  const preview = fullText.slice(0, FILE_FIRST_PREVIEW_SIZE);
+                  return [
+                    `# ${r.title}`,
+                    `Source: ${r.url}`,
+                    `⚠ ${reason}`,
+                    "",
+                    `${preview}${fullText.length > FILE_FIRST_PREVIEW_SIZE ? "..." : ""}`,
+                    "",
+                    `Full content saved to ${filePath} (${fullText.length} chars). Use \`read\` to explore further.`,
+                  ].join("\n");
+                } catch {
+                  return `⚠ Could not write temp file. Returning inline.\n\n${fullText}`;
                 }
-                return fallbackText;
               })
             )
           );
@@ -493,23 +565,45 @@ export default function (pi: ExtensionAPI) {
           };
         }
 
-        // No prompt: existing summary behavior
+        // No prompt: file-first for each URL
         const successCount = results.filter((r) => !r.error).length;
         const lines: string[] = [];
-        lines.push(`Fetched ${successCount}/${results.length} URLs. Response ID: ${responseId}`);
+        lines.push(`Fetched ${successCount}/${results.length} URLs.`);
         lines.push("");
         for (let i = 0; i < results.length; i++) {
           const r = results[i];
           if (r.error) {
             lines.push(`${i + 1}. ❌ ${r.url}: ${r.error}`);
           } else {
-            lines.push(`${i + 1}. ✅ ${r.title} (${r.content.length} chars)`);
-            lines.push(`   ${r.url}`);
+            const isGitHubCloneResult = githubCloneUrls.has(r.url);
+            if (isGitHubCloneResult) {
+              lines.push(`${i + 1}. ✅ ${r.title}`);
+              lines.push(`   ${r.url}`);
+              lines.push(`   ${r.content}`);
+            } else {
+              const fullText = `# ${r.title}\n\n${r.content}`;
+              let filePath: string;
+              try {
+                filePath = offloadToFile(fullText);
+              } catch {
+                lines.push(`${i + 1}. ⚠ ${r.title}`);
+                lines.push(`   ${r.url}`);
+                lines.push("   ⚠ Could not write temp file. Returning inline.");
+                const inlinePreview = fullText.slice(0, FILE_FIRST_PREVIEW_SIZE);
+                lines.push(`   Preview: ${inlinePreview}${fullText.length > FILE_FIRST_PREVIEW_SIZE ? "..." : ""}`);
+                lines.push("");
+                continue;
+              }
+              const preview = fullText.slice(0, FILE_FIRST_PREVIEW_SIZE);
+              lines.push(`${i + 1}. ✅ ${r.title}`);
+              lines.push(`   ${r.url}`);
+              lines.push(`   File: ${filePath} (${fullText.length} chars)`);
+              lines.push(`   Preview: ${preview}${fullText.length > FILE_FIRST_PREVIEW_SIZE ? "..." : ""}`);
+            }
           }
+          lines.push("");
         }
-
-        lines.push("");
-        lines.push(`Use get_search_content with responseId "${responseId}" and url/urlIndex to retrieve content.`);
+        lines.push(`Use \`read\` on the file paths above to explore content. Use get_search_content with responseId "${responseId}" to retrieve from memory.`);
         return {
           content: [{ type: "text", text: lines.join("\n") }],
           details: {

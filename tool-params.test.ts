@@ -69,6 +69,27 @@ describe("tool-params", () => {
     expect(result.excludeDomains).toEqual(["b.com"]);
   });
 
+  it("normalizeWebSearchInput defaults detail to undefined when omitted", () => {
+    const result = normalizeWebSearchInput({ query: "x" });
+    expect(result.detail).toBeUndefined();
+  });
+
+  it("normalizeWebSearchInput passes through 'summary'", () => {
+    const result = normalizeWebSearchInput({ query: "x", detail: "summary" });
+    expect(result.detail).toBe("summary");
+  });
+
+  it("normalizeWebSearchInput passes through 'highlights'", () => {
+    const result = normalizeWebSearchInput({ query: "x", detail: "highlights" });
+    expect(result.detail).toBe("highlights");
+  });
+
+  it("normalizeWebSearchInput returns undefined for invalid detail values", () => {
+    expect(normalizeWebSearchInput({ query: "x", detail: "full" }).detail).toBeUndefined();
+    expect(normalizeWebSearchInput({ query: "x", detail: 42 }).detail).toBeUndefined();
+    expect(normalizeWebSearchInput({ query: "x", detail: "" }).detail).toBeUndefined();
+  });
+
   it("normalizeCodeSearchInput requires query", () => {
     expect(() => normalizeCodeSearchInput({})).toThrow(/'query' must be provided/);
   });

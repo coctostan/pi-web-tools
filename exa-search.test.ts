@@ -51,6 +51,17 @@ describe("exa-search", () => {
       // Should include date for first result
       expect(output).toContain("2025-01-15");
     });
+
+    it("does not truncate summary snippet even when over 200 chars", () => {
+      const summary = "S".repeat(260);
+      const results: ExaSearchResult[] = [
+        { title: "Summary Page", url: "https://example.com/page", snippet: summary },
+      ];
+
+      const output = formatSearchResults(results);
+      expect(output).toContain(summary);
+      expect(output).not.toContain("…");
+    });
   });
 
   describe("searchExa", () => {
@@ -78,7 +89,30 @@ describe("exa-search", () => {
       const body = JSON.parse(init.body);
       expect(body.query).toBe("test query");
       expect(body.numResults).toBe(5); // default
-      expect(body.contents).toEqual({ highlights: { numSentences: 3, highlightsPerUrl: 3 } });
+      expect(body.contents).toEqual({ summary: true });
+    });
+
+    it("sends contents.summary when detail is 'summary'", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+
+      await searchExa("test query", { apiKey: "key", detail: "summary" });
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.contents).toEqual({ summary: true });
+    });
+
+    it("defaults to summary mode when detail is omitted", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+
+      await searchExa("test query", { apiKey: "key" });
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.contents).toEqual({ summary: true });
     });
 
     it("handles API errors with status code in message", async () => {
@@ -215,7 +249,7 @@ describe("exa-search", () => {
         json: async () => ({ results: [] }),
       });
 
-      await searchExa("test", { apiKey: "key" });
+      await searchExa("test", { apiKey: "key", detail: "highlights" });
 
       const body = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(body.contents).toEqual({ highlights: { numSentences: 3, highlightsPerUrl: 3 } });
@@ -241,6 +275,72 @@ describe("exa-search", () => {
       expect(results).toHaveLength(1);
       expect(results[0].snippet).toBe("First highlight. Second highlight.");
       expect(results[0].title).toBe("Highlights Result");
+    });
+
+    it("maps snippet fallback order summary -> highlights -> text -> empty string", async () => {
+      // summary case
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          results: [
+            {
+              title: "Summary Result",
+              url: "https://example.com/summary",
+              summary: "A concise one-line summary of the page.",
+            },
+          ],
+        }),
+      });
+      let results = await searchExa("test", { apiKey: "key" });
+      expect(results).toHaveLength(1);
+      expect(results[0].snippet).toBe("A concise one-line summary of the page.");
+
+      // highlights fallback case
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          results: [
+            {
+              title: "Highlights Result",
+              url: "https://example.com/highlights",
+              highlights: ["Sentence one.", "Sentence two."],
+            },
+          ],
+        }),
+      });
+      results = await searchExa("test", { apiKey: "key", detail: "highlights" });
+      expect(results[0].snippet).toBe("Sentence one. Sentence two.");
+
+      // text fallback case
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          results: [
+            {
+              title: "Text Result",
+              url: "https://example.com/text",
+              text: "Raw text fallback",
+            },
+          ],
+        }),
+      });
+      results = await searchExa("test", { apiKey: "key" });
+      expect(results[0].snippet).toBe("Raw text fallback");
+
+      // empty fallback case (title + url only)
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          results: [
+            {
+              title: "Bare Result",
+              url: "https://example.com/bare",
+            },
+          ],
+        }),
+      });
+      results = await searchExa("test", { apiKey: "key" });
+      expect(results[0].snippet).toBe("");
     });
 
     it("falls back to text when highlights array has no valid strings", async () => {
