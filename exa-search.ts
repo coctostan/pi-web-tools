@@ -10,7 +10,7 @@ export interface ExaSearchResult {
 export interface ExaSearchOptions {
   apiKey: string | null;
   numResults?: number;
-  type?: "auto" | "instant" | "deep";
+  type?: "auto" | "instant" | "deep" | "keyword";
   category?: string;
   includeDomains?: string[];
   excludeDomains?: string[];

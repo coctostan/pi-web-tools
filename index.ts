@@ -4,6 +4,7 @@ import { Type } from "@sinclair/typebox";
 import { complete } from "@mariozechner/pi-ai";
 import pLimit from "p-limit";
 import { searchExa, findSimilarExa, formatSearchResults } from "./exa-search.js";
+import { enhanceQuery, postProcessResults, type EnhancedQuery } from "./smart-search.js";
 import { extractContent, fetchAllContent, clearUrlCache } from "./extract.js";
 import { extractGitHub, clearCloneCache, parseGitHubUrl } from "./github-extract.js";
 import { getConfig, resetConfigCache } from "./config.js";
@@ -232,11 +233,31 @@ export default function (pi: ExtensionAPI) {
           const limit = pLimit(3);
           const resultPromises = queryList.map((q) =>
             limit(async (): Promise<QueryResultData> => {
+              let enhanced: EnhancedQuery = {
+                originalQuery: q,
+                finalQuery: q,
+                queryChanged: false,
+                appliedRules: [],
+                typeOverride: undefined,
+              };
+
               try {
-                const searchResults = await searchExa(q, {
+                enhanced = enhanceQuery(q);
+              } catch {
+                enhanced = {
+                  originalQuery: q,
+                  finalQuery: q,
+                  queryChanged: false,
+                  appliedRules: [],
+                  typeOverride: undefined,
+                };
+              }
+
+              try {
+                const searchResults = await searchExa(enhanced.finalQuery, {
                   apiKey: config.exaApiKey,
                   numResults: numResults !== undefined ? Math.max(1, Math.min(numResults, 20)) : 5,
-                  type,
+                  type: enhanced.typeOverride ?? type,
                   category,
                   includeDomains,
                   excludeDomains,
@@ -244,13 +265,39 @@ export default function (pi: ExtensionAPI) {
                   detail,
                   maxAgeHours,
                 });
-                const formatted = formatSearchResults(searchResults);
+
+                let processedResults = searchResults;
+                let duplicatesRemoved = 0;
+
+                try {
+                  const processed = postProcessResults(searchResults);
+                  processedResults = processed.results;
+                  duplicatesRemoved = processed.duplicatesRemoved;
+                } catch {
+                  processedResults = searchResults;
+                  duplicatesRemoved = 0;
+                }
+
+                const formatted = formatSearchResults(processedResults);
+                const notes: string[] = [];
+
+                if (enhanced.typeOverride === "keyword") {
+                  notes.push("Keyword search used.");
+                }
+                if (enhanced.queryChanged) {
+                  notes.push(`Searched as: ${enhanced.finalQuery}`);
+                }
+
+                const answer = notes.length > 0
+                  ? `${notes.join("\n")}\n\n${formatted}`
+                  : formatted;
                 successfulQueries++;
-                totalResults += searchResults.length;
+                totalResults += processedResults.length;
+
                 return {
                   query: q,
-                  answer: formatted,
-                  results: searchResults.map((r) => ({
+                  answer,
+                  results: processedResults.map((r) => ({
                     title: r.title,
                     url: r.url,
                     snippet: r.snippet,
@@ -325,7 +372,7 @@ export default function (pi: ExtensionAPI) {
     },
 
     renderResult(result, { expanded, isPartial }, theme) {
-      if (result.isError) {
+      if ((result as any).isError) {
         const errText = result.content[0];
         const msg = errText?.type === "text" ? errText.text : "Error";
         return new Text(theme.fg("error", msg), 0, 0);
@@ -443,7 +490,7 @@ export default function (pi: ExtensionAPI) {
               complete
             );
 
-            if (filterResult.filtered) {
+            if (filterResult.filtered !== null) {
               return {
                 content: [{ type: "text", text: `Source: ${r.url}\n\n${filterResult.filtered}` }],
                 details: {
@@ -574,7 +621,7 @@ export default function (pi: ExtensionAPI) {
                   complete
                 );
 
-                if (filterResult.filtered) {
+                if (filterResult.filtered !== null) {
                   return `Source: ${r.url}\n\n${filterResult.filtered}`;
                 }
 
@@ -679,7 +726,7 @@ export default function (pi: ExtensionAPI) {
     },
 
     renderResult(result, { expanded: _expanded, isPartial }, theme) {
-      if (result.isError) {
+      if ((result as any).isError) {
         const errText = result.content[0];
         const msg = errText?.type === "text" ? errText.text : "Error";
         return new Text(theme.fg("error", msg), 0, 0);
@@ -806,7 +853,7 @@ export default function (pi: ExtensionAPI) {
       },
 
       renderResult(result, { expanded, isPartial }, theme) {
-        if (result.isError) {
+        if ((result as any).isError) {
           const errText = result.content[0];
           const msg = errText?.type === "text" ? errText.text : "Error";
           return new Text(theme.fg("error", msg), 0, 0);
@@ -1016,7 +1063,7 @@ export default function (pi: ExtensionAPI) {
     },
 
     renderResult(result, { expanded, isPartial: _isPartial }, theme) {
-      if (result.isError) {
+      if ((result as any).isError) {
         const errText = result.content[0];
         const msg = errText?.type === "text" ? errText.text : "Error";
         return new Text(theme.fg("error", msg), 0, 0);
