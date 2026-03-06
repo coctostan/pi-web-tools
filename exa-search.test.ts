@@ -519,6 +519,60 @@ describe("exa-search", () => {
       });
     });
   });
+
+  describe("findSimilarExa — BUG #019: filters silently dropped", () => {
+    it("findSimilarExa does NOT forward maxAgeHours to /findSimilar (endpoint does not support it)", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+
+      await findSimilarExa("https://example.com", { apiKey: "key", maxAgeHours: 24 });
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      // maxAgeHours is a ContentsRequest field (livecrawl control), not a CommonRequest filter.
+      // /findSimilar uses CommonRequest — maxAgeHours must NOT appear in the request body.
+      expect(body.maxAgeHours).toBeUndefined();
+    });
+
+    it("BUG #019: sends includeDomains in request body when provided", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+
+      await findSimilarExa("https://example.com", { apiKey: "key", includeDomains: ["github.com"] });
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      // Currently includeDomains is silently dropped — this assertion will FAIL until fixed
+      expect(body.includeDomains).toEqual(["github.com"]);
+    });
+
+    it("BUG #019: sends excludeDomains in request body when provided", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+
+      await findSimilarExa("https://example.com", { apiKey: "key", excludeDomains: ["pinterest.com"] });
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      // Currently excludeDomains is silently dropped — this assertion will FAIL until fixed
+      expect(body.excludeDomains).toEqual(["pinterest.com"]);
+    });
+
+    it("findSimilarExa does NOT forward category to /findSimilar (endpoint does not support it)", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+
+      await findSimilarExa("https://example.com", { apiKey: "key", category: "news" });
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      // category is a search-specific field, not in CommonRequest.
+      // /findSimilar uses CommonRequest — category must NOT appear in the request body.
+      expect(body.category).toBeUndefined();
+  });
+  });
   describe("findSimilarExa error paths", () => {
     it("throws when apiKey is null", async () => {
       await expect(findSimilarExa("https://example.com", { apiKey: null })).rejects.toThrow("EXA_API_KEY");

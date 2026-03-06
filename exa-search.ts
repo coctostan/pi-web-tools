@@ -161,6 +161,12 @@ export async function findSimilarExa(url: string, options: ExaSearchOptions): Pr
       ? { highlights: { numSentences: 3, highlightsPerUrl: 3 } }
       : { summary: true },
   };
+  if (options.includeDomains && options.includeDomains.length > 0) {
+    requestBody.includeDomains = options.includeDomains;
+  }
+  if (options.excludeDomains && options.excludeDomains.length > 0) {
+    requestBody.excludeDomains = options.excludeDomains;
+  }
 
   const body = JSON.stringify(requestBody);
 

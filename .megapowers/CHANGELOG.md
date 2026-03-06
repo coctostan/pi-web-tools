@@ -32,3 +32,8 @@
 - `freshness` parameter on `web_search`: controls result recency via Exa's `maxAgeHours` field. Values: `"realtime"` (0h), `"day"` (24h), `"week"` (168h), `"any"` (no filter, default). Omitting the param sends no `maxAgeHours` to Exa — identical to previous behavior. (#008)
 - `similarUrl` parameter on `web_search`: finds pages similar to a given URL by routing to Exa's `POST /findSimilar` endpoint instead of `/search`. Mutually exclusive with `query`/`queries`. Returns the same `ExaSearchResult[]` format. (#009)
 - `findSimilarExa()` function in `exa-search.ts`: mirrors `searchExa` structure (retry, abort signal, result parser) but targets `/findSimilar` with a `url` body field instead of `query`. (#009)
+
+### Fixed (020)
+- `freshness: "realtime"` now maps to `maxAgeHours: 1` (last 1 hour) instead of `0`. Exa treated `0` as "no filter", making `"realtime"` functionally identical to `"any"` — returning results from years ago. (#018)
+- `similarUrl` searches now forward `includeDomains` and `excludeDomains` to Exa's `/findSimilar` endpoint. Previously these were silently dropped. (#019)
+- `similarUrl` searches now emit a user-visible warning note when `freshness` or `category` are provided, since `/findSimilar` does not support those filters. (#019)

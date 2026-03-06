@@ -90,9 +90,16 @@ describe("tool-params", () => {
     expect(normalizeWebSearchInput({ query: "x", detail: "" }).detail).toBeUndefined();
   });
 
-  it("normalizeWebSearchInput maps freshness 'realtime' to maxAgeHours 0", () => {
+  it("normalizeWebSearchInput maps freshness 'realtime' to maxAgeHours 1 (last 1 hour)", () => {
     const result = normalizeWebSearchInput({ query: "x", freshness: "realtime" });
-    expect(result.maxAgeHours).toBe(0);
+    expect(result.maxAgeHours).toBe(1);
+  });
+
+  it("BUG #018: freshness 'realtime' must NOT map to maxAgeHours 0 (Exa ignores 0 as no-filter)", () => {
+    const result = normalizeWebSearchInput({ query: "x", freshness: "realtime" });
+    // maxAgeHours: 0 is treated by Exa identically to omitting the field (no filtering).
+    // 'realtime' should either be removed from the enum or map to a small positive value.
+    expect(result.maxAgeHours).not.toBe(0);
   });
 
   it("normalizeWebSearchInput maps freshness 'day' to maxAgeHours 24", () => {
