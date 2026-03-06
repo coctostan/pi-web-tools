@@ -1,54 +1,18 @@
 {
   "version": 1,
-  "activeIssue": "020-fix-exa-search-parameter-handling-realti",
-  "workflow": "bugfix",
-  "phase": "done",
-  "phaseHistory": [
-    {
-      "from": "reproduce",
-      "to": "diagnose",
-      "timestamp": 1772808433497
-    },
-    {
-      "from": "diagnose",
-      "to": "plan",
-      "timestamp": 1772808732282
-    },
-    {
-      "from": "plan",
-      "to": "implement",
-      "timestamp": 1772810215092
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1772811588948
-    },
-    {
-      "from": "verify",
-      "to": "done",
-      "timestamp": 1772811703870
-    }
-  ],
+  "activeIssue": null,
+  "workflow": null,
+  "phase": null,
+  "phaseHistory": [],
   "reviewApproved": false,
   "planMode": null,
-  "planIteration": 1,
-  "currentTaskIndex": 3,
-  "completedTasks": [
-    1,
-    2,
-    3,
-    4
-  ],
+  "planIteration": 0,
+  "currentTaskIndex": 0,
+  "completedTasks": [],
   "tddTaskState": null,
-  "doneActions": [
-    "generate-bugfix-summary",
-    "write-changelog",
-    "capture-learnings",
-    "close-issue"
-  ],
-  "doneChecklistShown": true,
+  "doneActions": [],
+  "doneChecklistShown": false,
   "megaEnabled": true,
-  "branchName": "fix/020-fix-exa-search-parameter-handling-realti",
-  "baseBranch": "docs/v2-readme-and-agents"
+  "branchName": null,
+  "baseBranch": null
 }
