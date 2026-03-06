@@ -199,19 +199,28 @@ export default function (pi: ExtensionAPI) {
         let totalResults = 0;
         if (similarUrl) {
           // findSimilar mode — single request, no pLimit loop
+          const unsupportedFilters: string[] = [];
+          if (maxAgeHours !== undefined) unsupportedFilters.push("freshness");
+          if (category !== undefined) unsupportedFilters.push("category");
+          const warningNote =
+            unsupportedFilters.length > 0
+              ? `Note: ${unsupportedFilters.join(", ")} filter${unsupportedFilters.length > 1 ? "s are" : " is"} not supported for similarUrl searches and was ignored.\n\n`
+              : "";
           try {
             const searchResults = await findSimilarExa(similarUrl, {
               apiKey: config.exaApiKey,
               numResults: numResults !== undefined ? Math.max(1, Math.min(numResults, 20)) : 5,
               signal: combinedSignal,
               detail,
+              includeDomains,
+              excludeDomains,
             });
             const formatted = formatSearchResults(searchResults);
             successfulQueries++;
             totalResults += searchResults.length;
             results.push({
               query: similarUrl,
-              answer: formatted,
+              answer: warningNote + formatted,
               results: searchResults.map((r) => ({
                 title: r.title,
                 url: r.url,

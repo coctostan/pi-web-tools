@@ -87,11 +87,11 @@ Search the web. Returns **1-line summaries** by default — just enough to decid
 | `numResults` | number | Results per query (default: 5, max: 20) |
 | `type` | string | `"auto"` (default, best quality), `"instant"` (sub-150ms), `"deep"` (comprehensive) |
 | `detail` | string | `"summary"` (default, ~1 line) or `"highlights"` (3-sentence excerpts) |
-| `freshness` | string | `"realtime"`, `"day"`, `"week"`, or `"any"` (default) |
+| `freshness` | string | `"realtime"` (last 1 hour), `"day"` (last 24h), `"week"` (last 168h), or `"any"` (default, no filter) |
 | `category` | string | `"news"`, `"research paper"`, `"company"`, `"tweet"`, `"people"`, `"personal site"`, `"financial report"`, `"pdf"` |
 | `includeDomains` | string[] | Only include results from these domains |
 | `excludeDomains` | string[] | Exclude results from these domains |
-| `similarUrl` | string | Find pages similar to this URL (alternative to `query`) |
+| `similarUrl` | string | Find pages similar to this URL (alternative to `query`). Supports `includeDomains` and `excludeDomains`. Note: `freshness` and `category` are not supported and will produce a warning. |
 
 ```ts
 // Basic search

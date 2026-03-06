@@ -8,7 +8,7 @@ const VALID_CATEGORIES = new Set([
   "people", "personal site", "financial report", "pdf",
 ]);
 const VALID_DETAIL_VALUES = new Set(["summary", "highlights"]);
-const FRESHNESS_MAP: Record<string, number | undefined> = { realtime: 0, day: 24, week: 168, any: undefined };
+const FRESHNESS_MAP: Record<string, number | undefined> = { realtime: 1, day: 24, week: 168, any: undefined };
 
 export function normalizeWebSearchInput(params: {
   query?: unknown;

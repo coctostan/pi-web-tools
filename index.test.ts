@@ -865,4 +865,52 @@ describe("web_search similarUrl routing", () => {
 
     expect((result as any).details.queryCount).toBe(1);
   });
+
+  it("passes includeDomains and excludeDomains to findSimilarExa when similarUrl is provided", async () => {
+    exaState.findSimilarExa.mockResolvedValueOnce([]);
+    exaState.formatSearchResults.mockReturnValue("No results found.");
+
+    const { webSearchTool } = await getWebSearchTool();
+    await webSearchTool.execute("call-domains", {
+      similarUrl: "https://example.com",
+      includeDomains: ["github.com"],
+      excludeDomains: ["pinterest.com"],
+    });
+
+    expect(exaState.findSimilarExa).toHaveBeenCalledWith(
+      "https://example.com",
+      expect.objectContaining({
+        includeDomains: ["github.com"],
+        excludeDomains: ["pinterest.com"],
+      })
+    );
+  });
+
+  it("includes a warning note when freshness is used with similarUrl", async () => {
+    exaState.findSimilarExa.mockResolvedValueOnce([]);
+    exaState.formatSearchResults.mockReturnValue("No results found.");
+
+    const { webSearchTool } = await getWebSearchTool();
+    const result = await webSearchTool.execute("call-freshness-warn", {
+      similarUrl: "https://example.com",
+      freshness: "day",
+    });
+
+    const text = getText(result);
+    expect(text).toMatch(/freshness.*not supported/i);
+  });
+
+  it("includes a warning note when category is used with similarUrl", async () => {
+    exaState.findSimilarExa.mockResolvedValueOnce([]);
+    exaState.formatSearchResults.mockReturnValue("No results found.");
+
+    const { webSearchTool } = await getWebSearchTool();
+    const result = await webSearchTool.execute("call-category-warn", {
+      similarUrl: "https://example.com",
+      category: "news",
+    });
+
+    const text = getText(result);
+    expect(text).toMatch(/category.*not supported/i);
+  });
 });

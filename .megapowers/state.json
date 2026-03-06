@@ -1,62 +1,54 @@
 {
   "version": 1,
-  "activeIssue": "016-exa-feature-unlocks-freshness-findsimila",
-  "workflow": "feature",
+  "activeIssue": "020-fix-exa-search-parameter-handling-realti",
+  "workflow": "bugfix",
   "phase": "done",
   "phaseHistory": [
     {
-      "from": "brainstorm",
-      "to": "spec",
-      "timestamp": 1772745022359
+      "from": "reproduce",
+      "to": "diagnose",
+      "timestamp": 1772808433497
     },
     {
-      "from": "spec",
+      "from": "diagnose",
       "to": "plan",
-      "timestamp": 1772745726538
+      "timestamp": 1772808732282
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1772745784927
+      "timestamp": 1772810215092
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1772746241000
+      "timestamp": 1772811588948
     },
     {
       "from": "verify",
-      "to": "code-review",
-      "timestamp": 1772746446961
-    },
-    {
-      "from": "code-review",
       "to": "done",
-      "timestamp": 1772747091006
+      "timestamp": 1772811703870
     }
   ],
   "reviewApproved": false,
   "planMode": null,
   "planIteration": 1,
-  "currentTaskIndex": 1,
+  "currentTaskIndex": 3,
   "completedTasks": [
     1,
-    2
+    2,
+    3,
+    4
   ],
-  "tddTaskState": {
-    "taskIndex": 2,
-    "state": "impl-allowed",
-    "skipped": false
-  },
+  "tddTaskState": null,
   "doneActions": [
-    "generate-docs",
+    "generate-bugfix-summary",
     "write-changelog",
     "capture-learnings",
-    "push-and-pr",
     "close-issue"
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "feat/016-exa-feature-unlocks-freshness-findsimila",
-  "baseBranch": "main"
+  "branchName": "fix/020-fix-exa-search-parameter-handling-realti",
+  "baseBranch": "docs/v2-readme-and-agents"
 }
