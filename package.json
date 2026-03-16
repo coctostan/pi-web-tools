@@ -17,12 +17,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/coctostan/pi-exa-gh-web-tools.git"
+    "url": "git+https://github.com/coctostan/pi-web-tools.git"
   },
   "bugs": {
-    "url": "https://github.com/coctostan/pi-exa-gh-web-tools/issues"
+    "url": "https://github.com/coctostan/pi-web-tools/issues"
   },
-  "homepage": "https://github.com/coctostan/pi-exa-gh-web-tools#readme",
+  "homepage": "https://github.com/coctostan/pi-web-tools#readme",
   "publishConfig": {
     "access": "public"
   },
