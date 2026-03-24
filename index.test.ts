@@ -31,6 +31,7 @@ const configState = vi.hoisted(() => ({
       code_search: false,
       get_search_content: false,
     },
+    cacheTTLMinutes: 1440,
   },
 }));
 vi.mock("./config.js", () => ({
@@ -85,6 +86,16 @@ vi.mock("./offload.js", () => ({
   buildOffloadResult: offloadState.buildOffloadResult,
   cleanupTempFiles: offloadState.cleanupTempFiles,
   FILE_FIRST_PREVIEW_SIZE: 500,
+}));
+
+const cacheState = vi.hoisted(() => ({
+  getCached: vi.fn((_url: string, _prompt: string, _model: string, _ttl: number, _path: string): string | null => null),
+  putCache: vi.fn(),
+}));
+
+vi.mock("./research-cache.js", () => ({
+  getCached: cacheState.getCached,
+  putCache: cacheState.putCache,
 }));
 
 async function getFetchContentTool() {
@@ -215,6 +226,17 @@ describe("session lifecycle", () => {
 
     await handler({}, ctx as any);
     expect(state.clearUrlCache).toHaveBeenCalled();
+  });
+
+  it("session_shutdown does NOT call any cache-clearing function from research-cache", async () => {
+    const handlers = await getSessionHandlers();
+    const handler = handlers.get("session_shutdown");
+    expect(handler).toBeDefined();
+
+    await handler({});
+
+    expect(cacheState.getCached).not.toHaveBeenCalled();
+    expect(cacheState.putCache).not.toHaveBeenCalled();
   });
 });
 
@@ -912,5 +934,173 @@ describe("web_search similarUrl routing", () => {
 
     const text = getText(result);
     expect(text).toMatch(/category.*not supported/i);
+  });
+});
+
+describe("fetch_content research cache integration", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    cacheState.getCached.mockReset().mockReturnValue(null);
+    cacheState.putCache.mockReset();
+    state.extractContent.mockResolvedValue({
+      url: "https://docs.example.com/api",
+      title: "API Docs",
+      content: "RAW PAGE CONTENT",
+      error: null,
+    });
+    state.filterContent.mockResolvedValue({
+      filtered: "Rate limit is 100/min.",
+      model: "anthropic/claude-haiku-4-5",
+    });
+    offloadState.offloadToFile.mockReturnValue("/tmp/pi-web-test.txt");
+  });
+
+  it("returns cached answer on cache hit without calling extractContent or filterContent", async () => {
+    cacheState.getCached.mockReturnValueOnce("Cached: Rate limit is 100/min.");
+
+    const { fetchContentTool } = await getFetchContentTool();
+    const ctx = {
+      modelRegistry: { find: vi.fn(), getApiKey: vi.fn() },
+    } as any;
+
+    const result = await fetchContentTool.execute(
+      "call-cached",
+      { url: "https://docs.example.com/api", prompt: "What is the rate limit?" },
+      undefined,
+      undefined,
+      ctx
+    );
+
+    expect(cacheState.getCached).toHaveBeenCalled();
+    expect(state.extractContent).not.toHaveBeenCalled();
+    expect(state.filterContent).not.toHaveBeenCalled();
+
+    const text = getText(result);
+    expect(text).toContain("Source: https://docs.example.com/api");
+    expect(text).toContain("Cached: Rate limit is 100/min.");
+    expect(result.details.cached).toBe(true);
+  });
+
+  it("fetches and stores result on cache miss", async () => {
+    cacheState.getCached.mockReturnValueOnce(null);
+
+    const { fetchContentTool } = await getFetchContentTool();
+    const ctx = {
+      modelRegistry: { find: vi.fn(), getApiKey: vi.fn() },
+    } as any;
+
+    const result = await fetchContentTool.execute(
+      "call-miss",
+      { url: "https://docs.example.com/api", prompt: "What is the rate limit?" },
+      undefined,
+      undefined,
+      ctx
+    );
+
+    expect(cacheState.getCached).toHaveBeenCalled();
+    expect(state.extractContent).toHaveBeenCalled();
+    expect(state.filterContent).toHaveBeenCalled();
+    expect(cacheState.putCache).toHaveBeenCalledWith(
+      "https://docs.example.com/api",
+      "What is the rate limit?",
+      "anthropic/claude-haiku-4-5",
+      "Rate limit is 100/min.",
+      1440,
+      expect.any(String)
+    );
+
+    const text = getText(result);
+    expect(text).toContain("Rate limit is 100/min.");
+    expect(result.details.cached).toBeUndefined();
+  });
+
+  it("noCache skips cache read but still writes to cache after fresh fetch", async () => {
+    cacheState.getCached.mockReturnValueOnce("Should not be used");
+
+    const { fetchContentTool } = await getFetchContentTool();
+    const ctx = {
+      modelRegistry: { find: vi.fn(), getApiKey: vi.fn() },
+    } as any;
+
+    const result = await fetchContentTool.execute(
+      "call-nocache",
+      { url: "https://docs.example.com/api", prompt: "What is the rate limit?", noCache: true },
+      undefined,
+      undefined,
+      ctx
+    );
+
+    expect(cacheState.getCached).not.toHaveBeenCalled();
+    expect(state.extractContent).toHaveBeenCalled();
+    expect(state.filterContent).toHaveBeenCalled();
+    expect(cacheState.putCache).toHaveBeenCalledWith(
+      "https://docs.example.com/api",
+      "What is the rate limit?",
+      "anthropic/claude-haiku-4-5",
+      "Rate limit is 100/min.",
+      1440,
+      expect.any(String)
+    );
+
+    const text = getText(result);
+    expect(text).toContain("Rate limit is 100/min.");
+  });
+
+  it("multi-URL + prompt: independently checks cache per URL, mixing hits and misses", async () => {
+    state.extractContent.mockImplementation(async (url: string) => {
+      if (url === "https://a.example/docs") {
+        return { url, title: "A Docs", content: "RAW A", error: null };
+      }
+      return { url, title: "B Docs", content: "RAW B", error: null };
+    });
+
+    cacheState.getCached.mockImplementation((url: string) => {
+      if (url === "https://a.example/docs") return "Cached A answer";
+      return null;
+    });
+
+    state.filterContent.mockReset();
+    state.filterContent.mockResolvedValueOnce({
+      filtered: "Fresh B answer",
+      model: "anthropic/claude-haiku-4-5",
+    });
+
+    const { fetchContentTool } = await getFetchContentTool();
+    const ctx = {
+      modelRegistry: { find: vi.fn(), getApiKey: vi.fn() },
+    } as any;
+
+    const result = await fetchContentTool.execute(
+      "call-multi-cache",
+      {
+        urls: ["https://a.example/docs", "https://b.example/docs"],
+        prompt: "What are the rate limits?",
+      },
+      undefined,
+      undefined,
+      ctx
+    );
+
+    const text = getText(result);
+    expect(text).toContain("Cached A answer");
+    expect(text).toContain("Fresh B answer");
+
+    expect(state.filterContent).toHaveBeenCalledTimes(1);
+    expect(state.filterContent).toHaveBeenCalledWith(
+      "RAW B",
+      "What are the rate limits?",
+      ctx.modelRegistry,
+      undefined,
+      expect.any(Function)
+    );
+
+    expect(cacheState.putCache).toHaveBeenCalledWith(
+      "https://b.example/docs",
+      "What are the rate limits?",
+      "anthropic/claude-haiku-4-5",
+      "Fresh B answer",
+      1440,
+      expect.any(String)
+    );
   });
 });

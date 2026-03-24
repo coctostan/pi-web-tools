@@ -179,4 +179,27 @@ describe("tool-params", () => {
     });
     expect(result.prompt).toBeUndefined();
   });
+
+  it("normalizeFetchContentInput extracts noCache boolean when provided", () => {
+    const result = normalizeFetchContentInput({
+      url: "https://example.com",
+      noCache: true,
+    });
+    expect(result.noCache).toBe(true);
+  });
+
+  it("normalizeFetchContentInput defaults noCache to undefined when not provided", () => {
+    const result = normalizeFetchContentInput({
+      url: "https://example.com",
+    });
+    expect(result.noCache).toBeUndefined();
+  });
+
+  it("normalizeFetchContentInput ignores non-boolean noCache", () => {
+    const result = normalizeFetchContentInput({
+      url: "https://example.com",
+      noCache: "yes",
+    });
+    expect(result.noCache).toBeUndefined();
+  });
 });

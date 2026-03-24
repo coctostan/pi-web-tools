@@ -10,6 +10,7 @@ import { extractGitHub, clearCloneCache, parseGitHubUrl } from "./github-extract
 import { getConfig, resetConfigCache } from "./config.js";
 import { searchContext } from "./exa-context.js";
 import { filterContent } from "./filter.js";
+import { getCached, putCache } from "./research-cache.js";
 import {
   normalizeFetchContentInput,
   normalizeWebSearchInput,
@@ -33,6 +34,10 @@ import {
 
 const MAX_INLINE_CONTENT = 30000;
 const pendingFetches = new Map<string, AbortController>();
+
+import { join } from "node:path";
+import { homedir } from "node:os";
+const DEFAULT_CACHE_FILE = join(homedir(), ".pi", "cache", "web-tools", "research-cache.json");
 
 // ---------------------------------------------------------------------------
 // Session event handlers
@@ -104,6 +109,7 @@ const FetchContentParams = Type.Object({
   urls: Type.Optional(Type.Array(Type.String(), { description: "Multiple URLs (parallel)" })),
   forceClone: Type.Optional(Type.Boolean({ description: "Force cloning large GitHub repos" })),
   prompt: Type.Optional(Type.String({ description: "Question to answer from the fetched content. When provided, content is filtered through a cheap model and only the focused answer is returned (~200-1000 chars instead of full page)." })),
+  noCache: Type.Optional(Type.Boolean({ description: "Skip cache and fetch fresh content. The fresh result still updates the cache." })),
 });
 
 const GetSearchContentParams = Type.Object({
@@ -445,7 +451,7 @@ export default function (pi: ExtensionAPI) {
     parameters: FetchContentParams,
 
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-      const { urls: dedupedUrls, forceClone, prompt } = normalizeFetchContentInput(params);
+      const { urls: dedupedUrls, forceClone, prompt, noCache } = normalizeFetchContentInput(params);
 
       const abortController = new AbortController();
       const fetchId = generateId();
@@ -472,6 +478,26 @@ export default function (pi: ExtensionAPI) {
           return extractContent(targetUrl, combinedSignal);
         };
 
+        // Early cache check for single-URL + prompt (skip fetch entirely on hit)
+        if (dedupedUrls.length === 1 && prompt && !noCache) {
+          const config = getConfig();
+          const resolvedModel = config.filterModel ?? "anthropic/claude-haiku-4-5";
+          const cachedAnswer = getCached(dedupedUrls[0], prompt, resolvedModel, config.cacheTTLMinutes, DEFAULT_CACHE_FILE);
+          if (cachedAnswer !== null) {
+            const responseId = generateId();
+            return {
+              content: [{ type: "text", text: `Source: ${dedupedUrls[0]}\n\n${cachedAnswer}` }],
+              details: {
+                responseId,
+                url: dedupedUrls[0],
+                charCount: cachedAnswer.length,
+                filtered: true,
+                cached: true,
+                ptcValue: { responseId, urls: [{ url: dedupedUrls[0], title: null, content: null, filtered: cachedAnswer, filePath: null, charCount: cachedAnswer.length, error: null }], successCount: 1, totalCount: 1 },
+              },
+            };
+          }
+        }
         let results: ExtractedContent[];
         if (dedupedUrls.length === 1) {
           results = [await fetchOne(dedupedUrls[0])];
@@ -479,7 +505,6 @@ export default function (pi: ExtensionAPI) {
           const limit = pLimit(3);
           results = await Promise.all(dedupedUrls.map((url) => limit(() => fetchOne(url))));
         }
-
         const responseId = generateId();
         const storedData: StoredResultData = {
           id: responseId,
@@ -511,6 +536,8 @@ export default function (pi: ExtensionAPI) {
             );
 
             if (filterResult.filtered !== null) {
+              // Store in cache
+              putCache(r.url, prompt, filterResult.model, filterResult.filtered, config.cacheTTLMinutes, DEFAULT_CACHE_FILE);
               return {
                 content: [{ type: "text", text: `Source: ${r.url}\n\n${filterResult.filtered}` }],
                 details: {
@@ -640,6 +667,16 @@ export default function (pi: ExtensionAPI) {
                   ptcSources.push({ url: r.url, error: r.error });
                   return `❌ ${r.url}: ${r.error}`;
                 }
+
+                // Check cache first (unless noCache)
+                if (!noCache) {
+                  const resolvedModel = config.filterModel ?? "anthropic/claude-haiku-4-5";
+                  const cachedAnswer = getCached(r.url, prompt, resolvedModel, config.cacheTTLMinutes, DEFAULT_CACHE_FILE);
+                  if (cachedAnswer !== null) {
+                    ptcSources.push({ url: r.url, answer: cachedAnswer, contentLength: cachedAnswer.length });
+                    return `Source: ${r.url}\n\n${cachedAnswer}`;
+                  }
+                }
                 const filterResult = await filterContent(
                   r.content,
                   prompt,
@@ -648,6 +685,8 @@ export default function (pi: ExtensionAPI) {
                   complete
                 );
                 if (filterResult.filtered !== null) {
+                  // Store in cache
+                  putCache(r.url, prompt, filterResult.model, filterResult.filtered, config.cacheTTLMinutes, DEFAULT_CACHE_FILE);
                   ptcSources.push({ url: r.url, answer: filterResult.filtered, contentLength: filterResult.filtered.length });
                   return `Source: ${r.url}\n\n${filterResult.filtered}`;
                 }

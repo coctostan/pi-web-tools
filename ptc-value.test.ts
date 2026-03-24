@@ -33,6 +33,7 @@ const configState = vi.hoisted(() => ({
       code_search: true,
       get_search_content: true,
     },
+    cacheTTLMinutes: 1440,
   },
 }));
 vi.mock("./config.js", () => ({
@@ -91,6 +92,11 @@ vi.mock("./offload.js", () => ({
   buildOffloadResult: offloadState.buildOffloadResult,
   cleanupTempFiles: offloadState.cleanupTempFiles,
   FILE_FIRST_PREVIEW_SIZE: 500,
+}));
+
+vi.mock("./research-cache.js", () => ({
+  getCached: vi.fn(() => null),
+  putCache: vi.fn(),
 }));
 
 // --- Helpers ---

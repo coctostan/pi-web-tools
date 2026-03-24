@@ -43,3 +43,7 @@
 
 ### Changed (023)
 - `fetch_content` multi-URL+prompt `ptcValue` shape cleaned up: `urls` → `sources`, `filtered` → `answer`, `charCount` → `contentLength`, `prompt` echoed at top level. Per-source entries are now minimal — success: `{ url, answer, contentLength }`, error: `{ url, error }`, fallback: `{ url, title, content, filePath, contentLength }`. No null-heavy entries. (#023)
+- Persistent TTL-based research cache for `fetch_content` + `prompt`: repeated doc lookups return cached answers instantly — zero network calls, zero model calls. Cache key is `SHA-256(url + prompt + filterModelId)`, stored at `~/.pi/cache/web-tools/research-cache.json`. Default TTL: 24h, configurable via `cacheTTLMinutes` in `web-tools.json`. (#024)
+- `noCache` parameter on `fetch_content`: bypasses cache read (always fetches fresh) while still updating the cache with the new result. (#024)
+- `cacheTTLMinutes` config field in `~/.pi/web-tools.json` (integer, minutes, default: 1440). (#024)
+- Multi-URL + prompt cache: each URL is independently cache-checked — some may hit cache while others miss. (#024)

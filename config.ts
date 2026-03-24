@@ -22,6 +22,7 @@ export interface WebToolsConfig {
   filterModel?: string;
   github: GitHubConfig;
   tools: ToolToggles;
+  cacheTTLMinutes: number;
 }
 
 const DEFAULT_CONFIG: WebToolsConfig = {
@@ -38,6 +39,7 @@ const DEFAULT_CONFIG: WebToolsConfig = {
     fetch_content: true,
     get_search_content: true,
   },
+  cacheTTLMinutes: 1440,
 };
 
 let cachedConfig: WebToolsConfig | null = null;
@@ -107,8 +109,11 @@ function buildConfig(): WebToolsConfig {
   if (!tools.web_search && !tools.code_search && !tools.fetch_content) {
     tools.get_search_content = false;
   }
+  const cacheTTLMinutes = typeof file["cacheTTLMinutes"] === "number" && Number.isFinite(file["cacheTTLMinutes"] as number)
+    ? file["cacheTTLMinutes"] as number
+    : DEFAULT_CONFIG.cacheTTLMinutes;
 
-  return { exaApiKey, filterModel, github, tools };
+  return { exaApiKey, filterModel, github, tools, cacheTTLMinutes };
 }
 
 export function getConfig(): WebToolsConfig {
