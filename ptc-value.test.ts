@@ -313,7 +313,7 @@ describe("fetch_content ptcValue", () => {
     expect(ptc.urls[0].title).toBe("test/repo");
   });
 
-  it("includes ptcValue on multi-URL with prompt", async () => {
+  it("multi-URL+prompt ptcValue uses sources (not urls), answer, contentLength, and echoes prompt", async () => {
     state.extractContent.mockImplementation(async (url: string) => ({
       url,
       title: `Title ${url}`,
@@ -334,11 +334,101 @@ describe("fetch_content ptcValue", () => {
     );
 
     const ptc = result.details.ptcValue;
-    expect(ptc.urls).toHaveLength(2);
-    expect(ptc.urls[0].filtered).toBe("filtered answer");
-    expect(ptc.urls[1].filtered).toBe("filtered answer");
+    // R1: sources replaces urls
+    expect(ptc.sources).toHaveLength(2);
+    expect(ptc).not.toHaveProperty("urls");
+    // R4: prompt echoed
+    expect(ptc.prompt).toBe("question");
+    // R2: answer replaces filtered
+    expect(ptc.sources[0].answer).toBe("filtered answer");
+    expect(ptc.sources[0]).not.toHaveProperty("filtered");
+    // R3: contentLength replaces charCount
+    expect(ptc.sources[0].contentLength).toBe("filtered answer".length);
+    expect(ptc.sources[0]).not.toHaveProperty("charCount");
+    // R5: minimal — no content, filePath, title, error
+    expect(ptc.sources[0]).not.toHaveProperty("content");
+    expect(ptc.sources[0]).not.toHaveProperty("filePath");
+    expect(ptc.sources[0]).not.toHaveProperty("title");
+    expect(ptc.sources[0]).not.toHaveProperty("error");
+    // Only url, answer, contentLength
+    expect(Object.keys(ptc.sources[0]).sort()).toEqual(["answer", "contentLength", "url"]);
+    // Top-level details unchanged
     expect(ptc.successCount).toBe(2);
     expect(ptc.totalCount).toBe(2);
+    expect(ptc.responseId).toBe(result.details.responseId);
+  });
+
+  it("multi-URL+prompt ptcValue error entries have only url and error", async () => {
+    state.extractContent.mockImplementation(async (url: string) => {
+      if (url === "https://a.com") {
+        return { url, title: "A", content: "Content A", error: null };
+      }
+      return { url, title: null, content: "", error: "404 Not Found" };
+    });
+    state.filterContent.mockResolvedValue({
+      filtered: "answer A",
+      model: "anthropic/claude-haiku-4-5",
+    });
+
+    const tools = await getAllTools();
+    const tool = tools.get("fetch_content")!;
+    const result = await tool.execute(
+      "call-multi-err",
+      { urls: ["https://a.com", "https://b.com"], prompt: "question" },
+      undefined, undefined, ctx
+    );
+
+    const ptc = result.details.ptcValue;
+    expect(ptc.sources).toHaveLength(2);
+    // Find entries by URL (order not guaranteed due to parallel push)
+    const successEntry = ptc.sources.find((s: any) => s.url === "https://a.com");
+    const errorEntry = ptc.sources.find((s: any) => s.url === "https://b.com");
+    // Success entry
+    expect(Object.keys(successEntry).sort()).toEqual(["answer", "contentLength", "url"]);
+    // Error entry — only url and error
+    expect(errorEntry.url).toBe("https://b.com");
+    expect(errorEntry.error).toBe("404 Not Found");
+    expect(Object.keys(errorEntry).sort()).toEqual(["error", "url"]);
+  });
+
+  it("multi-URL+prompt ptcValue filter-fallback entries retain url, title, content, filePath, contentLength", async () => {
+    state.extractContent.mockImplementation(async (url: string) => ({
+      url,
+      title: `Title ${url}`,
+      content: `Content ${url}`,
+      error: null,
+    }));
+    state.filterContent.mockResolvedValueOnce({
+      filtered: "answer A",
+      model: "anthropic/claude-haiku-4-5",
+    }).mockResolvedValueOnce({
+      filtered: null,
+      reason: "No filter model available (tried anthropic/claude-haiku-4-5)",
+    });
+    offloadState.offloadToFile.mockReturnValueOnce("/tmp/pi-web-fallback.txt");
+
+    const tools = await getAllTools();
+    const tool = tools.get("fetch_content")!;
+    const result = await tool.execute(
+      "call-multi-fallback",
+      { urls: ["https://a.com", "https://b.com"], prompt: "question" },
+      undefined, undefined, ctx
+    );
+
+    const ptc = result.details.ptcValue;
+    expect(ptc.sources).toHaveLength(2);
+    expect(ptc.prompt).toBe("question");
+    // First: filtered success — minimal
+    expect(Object.keys(ptc.sources[0]).sort()).toEqual(["answer", "contentLength", "url"]);
+    // Second: filter fallback — retains content fields, no answer or error
+    expect(ptc.sources[1].url).toBe("https://b.com");
+    expect(ptc.sources[1].title).toBe("Title https://b.com");
+    expect(ptc.sources[1].content).toBe("Content https://b.com");
+    expect(ptc.sources[1].filePath).toBe("/tmp/pi-web-fallback.txt");
+    expect(ptc.sources[1].contentLength).toBe("Content https://b.com".length);
+    expect(ptc.sources[1]).not.toHaveProperty("answer");
+    expect(ptc.sources[1]).not.toHaveProperty("error");
+    expect(Object.keys(ptc.sources[1]).sort()).toEqual(["content", "contentLength", "filePath", "title", "url"]);
   });
 
   it("includes ptcValue on multi-URL without prompt", async () => {

@@ -632,12 +632,12 @@ export default function (pi: ExtensionAPI) {
         if (prompt) {
           const config = getConfig();
           const limit = pLimit(3);
-          const ptcUrls: Array<{ url: string, title: string | null, content: string | null, filtered: string | null, filePath: string | null, charCount: number | null, error: string | null }> = [];
+          const ptcSources: Array<Record<string, unknown>> = [];
           const blocks = await Promise.all(
             results.map((r) =>
               limit(async () => {
                 if (r.error) {
-                  ptcUrls.push({ url: r.url, title: null, content: null, filtered: null, filePath: null, charCount: null, error: r.error });
+                  ptcSources.push({ url: r.url, error: r.error });
                   return `❌ ${r.url}: ${r.error}`;
                 }
                 const filterResult = await filterContent(
@@ -648,7 +648,7 @@ export default function (pi: ExtensionAPI) {
                   complete
                 );
                 if (filterResult.filtered !== null) {
-                  ptcUrls.push({ url: r.url, title: r.title, content: null, filtered: filterResult.filtered, filePath: null, charCount: filterResult.filtered.length, error: null });
+                  ptcSources.push({ url: r.url, answer: filterResult.filtered, contentLength: filterResult.filtered.length });
                   return `Source: ${r.url}\n\n${filterResult.filtered}`;
                 }
                 const reason = filterResult.reason.startsWith("No filter model available")
@@ -659,7 +659,7 @@ export default function (pi: ExtensionAPI) {
                 try {
                   const filePath = offloadToFile(fullText);
                   const preview = fullText.slice(0, FILE_FIRST_PREVIEW_SIZE);
-                  ptcUrls.push({ url: r.url, title: r.title, content: r.content, filtered: null, filePath, charCount: r.content.length, error: null });
+                  ptcSources.push({ url: r.url, title: r.title, content: r.content, filePath, contentLength: r.content.length });
                   return [
                     `# ${r.title}`,
                     `Source: ${r.url}`,
@@ -670,7 +670,7 @@ export default function (pi: ExtensionAPI) {
                     `Full content saved to ${filePath} (${fullText.length} chars). Use \`read\` to explore further.`,
                   ].join("\n");
                 } catch {
-                  ptcUrls.push({ url: r.url, title: r.title, content: r.content, filtered: null, filePath: null, charCount: r.content.length, error: null });
+                  ptcSources.push({ url: r.url, title: r.title, content: r.content, filePath: null, contentLength: r.content.length });
                   return `⚠ Could not write temp file. Returning inline.\n\n${fullText}`;
                 }
               })
@@ -684,7 +684,7 @@ export default function (pi: ExtensionAPI) {
               successCount,
               totalCount: results.length,
               filtered: true,
-              ptcValue: { responseId, urls: ptcUrls, successCount, totalCount: results.length },
+              ptcValue: { responseId, prompt, sources: ptcSources, successCount, totalCount: results.length },
             },
           };
         }

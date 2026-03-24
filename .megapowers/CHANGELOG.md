@@ -40,3 +40,6 @@
 
 ### Added (022)
 - `details.ptcValue` on all 4 tool executors (`web_search`, `fetch_content`, `code_search`, `get_search_content`): structured payloads that PTC's `code_execution` consumes directly instead of parsing markdown text. (#022)
+
+### Changed (023)
+- `fetch_content` multi-URL+prompt `ptcValue` shape cleaned up: `urls` → `sources`, `filtered` → `answer`, `charCount` → `contentLength`, `prompt` echoed at top level. Per-source entries are now minimal — success: `{ url, answer, contentLength }`, error: `{ url, error }`, fallback: `{ url, title, content, filePath, contentLength }`. No null-heavy entries. (#023)
