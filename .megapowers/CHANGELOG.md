@@ -37,3 +37,6 @@
 - `freshness: "realtime"` now maps to `maxAgeHours: 1` (last 1 hour) instead of `0`. Exa treated `0` as "no filter", making `"realtime"` functionally identical to `"any"` — returning results from years ago. (#018)
 - `similarUrl` searches now forward `includeDomains` and `excludeDomains` to Exa's `/findSimilar` endpoint. Previously these were silently dropped. (#019)
 - `similarUrl` searches now emit a user-visible warning note when `freshness` or `category` are provided, since `/findSimilar` does not support those filters. (#019)
+
+### Added (022)
+- `details.ptcValue` on all 4 tool executors (`web_search`, `fetch_content`, `code_search`, `get_search_content`): structured payloads that PTC's `code_execution` consumes directly instead of parsing markdown text. (#022)

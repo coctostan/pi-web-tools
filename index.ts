@@ -357,6 +357,17 @@ export default function (pi: ExtensionAPI) {
             successfulQueries,
             totalResults,
             responseId: searchId,
+            ptcValue: {
+              responseId: searchId,
+              queries: results.map(r => ({
+                query: r.query,
+                results: r.results,
+                error: r.error,
+              })),
+              queryCount: similarUrl ? 1 : queryList.length,
+              successfulQueries,
+              totalResults,
+            },
           },
         };
       } finally {
@@ -485,7 +496,7 @@ export default function (pi: ExtensionAPI) {
           if (r.error) {
             return {
               content: [{ type: "text", text: `Error fetching ${r.url}: ${r.error}` }],
-              details: { responseId, url: r.url, error: r.error },
+              details: { responseId, url: r.url, error: r.error, ptcValue: { responseId, urls: [{ url: r.url, title: null, content: null, filtered: null, filePath: null, charCount: null, error: r.error }], successCount: 0, totalCount: 1 } },
             };
           }
 
@@ -509,6 +520,7 @@ export default function (pi: ExtensionAPI) {
                   charCount: filterResult.filtered.length,
                   filtered: true,
                   filterModel: filterResult.model,
+                  ptcValue: { responseId, urls: [{ url: r.url, title: r.title, content: null, filtered: filterResult.filtered, filePath: null, charCount: filterResult.filtered.length, error: null }], successCount: 1, totalCount: 1 },
                 },
               };
             }
@@ -541,6 +553,7 @@ export default function (pi: ExtensionAPI) {
                   charCount: r.content.length,
                   filtered: false,
                   filePath,
+                  ptcValue: { responseId, urls: [{ url: r.url, title: r.title, content: r.content, filtered: null, filePath, charCount: r.content.length, error: null }], successCount: 1, totalCount: 1 },
                 },
               };
             } catch {
@@ -553,6 +566,7 @@ export default function (pi: ExtensionAPI) {
                   charCount: r.content.length,
                   filtered: false,
                   fileFirstFailed: true,
+                  ptcValue: { responseId, urls: [{ url: r.url, title: r.title, content: r.content, filtered: null, filePath: null, charCount: r.content.length, error: null }], successCount: 1, totalCount: 1 },
                 },
               };
           }
@@ -567,6 +581,7 @@ export default function (pi: ExtensionAPI) {
                 url: r.url,
                 title: r.title,
                 charCount: r.content.length,
+                ptcValue: { responseId, urls: [{ url: r.url, title: r.title, content: r.content, filtered: null, filePath: null, charCount: r.content.length, error: null }], successCount: 1, totalCount: 1 },
               },
             };
           }
@@ -585,6 +600,7 @@ export default function (pi: ExtensionAPI) {
                 title: r.title,
                 charCount: r.content.length,
                 fileFirstFailed: true,
+                ptcValue: { responseId, urls: [{ url: r.url, title: r.title, content: r.content, filtered: null, filePath: null, charCount: r.content.length, error: null }], successCount: 1, totalCount: 1 },
               },
             };
           }
@@ -607,6 +623,7 @@ export default function (pi: ExtensionAPI) {
               title: r.title,
               charCount: r.content.length,
               filePath,
+              ptcValue: { responseId, urls: [{ url: r.url, title: r.title, content: null, filtered: null, filePath, charCount: r.content.length, error: null }], successCount: 1, totalCount: 1 },
             },
           };
         }
@@ -615,13 +632,14 @@ export default function (pi: ExtensionAPI) {
         if (prompt) {
           const config = getConfig();
           const limit = pLimit(3);
+          const ptcUrls: Array<{ url: string, title: string | null, content: string | null, filtered: string | null, filePath: string | null, charCount: number | null, error: string | null }> = [];
           const blocks = await Promise.all(
             results.map((r) =>
               limit(async () => {
                 if (r.error) {
+                  ptcUrls.push({ url: r.url, title: null, content: null, filtered: null, filePath: null, charCount: null, error: r.error });
                   return `❌ ${r.url}: ${r.error}`;
                 }
-
                 const filterResult = await filterContent(
                   r.content,
                   prompt,
@@ -629,11 +647,10 @@ export default function (pi: ExtensionAPI) {
                   config.filterModel,
                   complete
                 );
-
                 if (filterResult.filtered !== null) {
+                  ptcUrls.push({ url: r.url, title: r.title, content: null, filtered: filterResult.filtered, filePath: null, charCount: filterResult.filtered.length, error: null });
                   return `Source: ${r.url}\n\n${filterResult.filtered}`;
                 }
-
                 const reason = filterResult.reason.startsWith("No filter model available")
                   ? "No filter model available. Returning raw content."
                   : filterResult.reason;
@@ -642,6 +659,7 @@ export default function (pi: ExtensionAPI) {
                 try {
                   const filePath = offloadToFile(fullText);
                   const preview = fullText.slice(0, FILE_FIRST_PREVIEW_SIZE);
+                  ptcUrls.push({ url: r.url, title: r.title, content: r.content, filtered: null, filePath, charCount: r.content.length, error: null });
                   return [
                     `# ${r.title}`,
                     `Source: ${r.url}`,
@@ -652,12 +670,12 @@ export default function (pi: ExtensionAPI) {
                     `Full content saved to ${filePath} (${fullText.length} chars). Use \`read\` to explore further.`,
                   ].join("\n");
                 } catch {
+                  ptcUrls.push({ url: r.url, title: r.title, content: r.content, filtered: null, filePath: null, charCount: r.content.length, error: null });
                   return `⚠ Could not write temp file. Returning inline.\n\n${fullText}`;
                 }
               })
             )
           );
-
           const successCount = results.filter((r) => !r.error).length;
           return {
             content: [{ type: "text", text: blocks.join("\n\n---\n\n") }],
@@ -666,6 +684,7 @@ export default function (pi: ExtensionAPI) {
               successCount,
               totalCount: results.length,
               filtered: true,
+              ptcValue: { responseId, urls: ptcUrls, successCount, totalCount: results.length },
             },
           };
         }
@@ -673,18 +692,21 @@ export default function (pi: ExtensionAPI) {
         // No prompt: file-first for each URL
         const successCount = results.filter((r) => !r.error).length;
         const lines: string[] = [];
+        const ptcUrls: Array<{ url: string, title: string | null, content: string | null, filtered: string | null, filePath: string | null, charCount: number | null, error: string | null }> = [];
         lines.push(`Fetched ${successCount}/${results.length} URLs.`);
         lines.push("");
         for (let i = 0; i < results.length; i++) {
           const r = results[i];
           if (r.error) {
             lines.push(`${i + 1}. ❌ ${r.url}: ${r.error}`);
+            ptcUrls.push({ url: r.url, title: null, content: null, filtered: null, filePath: null, charCount: null, error: r.error });
           } else {
             const isGitHubCloneResult = githubCloneUrls.has(r.url);
             if (isGitHubCloneResult) {
               lines.push(`${i + 1}. ✅ ${r.title}`);
               lines.push(`   ${r.url}`);
               lines.push(`   ${r.content}`);
+              ptcUrls.push({ url: r.url, title: r.title, content: r.content, filtered: null, filePath: null, charCount: r.content.length, error: null });
             } else {
               const fullText = `# ${r.title}\n\n${r.content}`;
               let filePath: string;
@@ -697,6 +719,7 @@ export default function (pi: ExtensionAPI) {
                 const inlinePreview = fullText.slice(0, FILE_FIRST_PREVIEW_SIZE);
                 lines.push(`   Preview: ${inlinePreview}${fullText.length > FILE_FIRST_PREVIEW_SIZE ? "..." : ""}`);
                 lines.push("");
+                ptcUrls.push({ url: r.url, title: r.title, content: r.content, filtered: null, filePath: null, charCount: r.content.length, error: null });
                 continue;
               }
               const preview = fullText.slice(0, FILE_FIRST_PREVIEW_SIZE);
@@ -704,6 +727,7 @@ export default function (pi: ExtensionAPI) {
               lines.push(`   ${r.url}`);
               lines.push(`   File: ${filePath} (${fullText.length} chars)`);
               lines.push(`   Preview: ${preview}${fullText.length > FILE_FIRST_PREVIEW_SIZE ? "..." : ""}`);
+              ptcUrls.push({ url: r.url, title: r.title, content: null, filtered: null, filePath, charCount: r.content.length, error: null });
             }
           }
           lines.push("");
@@ -715,6 +739,7 @@ export default function (pi: ExtensionAPI) {
             responseId,
             successCount,
             totalCount: results.length,
+            ptcValue: { responseId, urls: ptcUrls, successCount, totalCount: results.length },
           },
         };
       } finally {
@@ -839,6 +864,13 @@ export default function (pi: ExtensionAPI) {
               query: result.query,
               charCount: result.content.length,
               truncated,
+              ptcValue: {
+                responseId,
+                query: result.query,
+                content: result.content,
+                charCount: result.content.length,
+                truncated,
+              },
             },
           };
         } catch (err) {
@@ -846,7 +878,7 @@ export default function (pi: ExtensionAPI) {
           return {
             content: [{ type: "text", text: `Error: ${msg}` }],
             isError: true,
-            details: { query, error: msg },
+            details: { query, error: msg, ptcValue: { query, error: msg } },
           };
         } finally {
           pendingFetches.delete(fetchId);
@@ -956,7 +988,7 @@ export default function (pi: ExtensionAPI) {
           }
           return {
             content: [{ type: "text", text: truncateContent(lines.join("\n"), maxChars) }],
-            details: { type: "search", queryCount: stored.queries.length },
+            details: { type: "search", queryCount: stored.queries.length, ptcValue: { type: "search", queries: stored.queries.map(q => ({ query: q.query, results: q.results, error: q.error })) } },
           };
         }
 
@@ -974,6 +1006,7 @@ export default function (pi: ExtensionAPI) {
             type: "search",
             query: targetQuery.query,
             resultCount: targetQuery.results.length,
+            ptcValue: { type: "search", query: targetQuery.query, results: targetQuery.results, error: targetQuery.error },
           },
         };
       }
@@ -1015,7 +1048,7 @@ export default function (pi: ExtensionAPI) {
           lines.push("Specify url or urlIndex to retrieve full content.");
           return {
             content: [{ type: "text", text: truncateContent(lines.join("\n"), maxChars) }],
-            details: { type: "fetch", urlCount: stored.urls.length },
+            details: { type: "fetch", urlCount: stored.urls.length, ptcValue: { type: "fetch", urls: stored.urls.map(u => ({ url: u.url, title: u.title || null, charCount: u.error ? null : u.content.length, error: u.error || null })) } },
           };
         }
 
@@ -1024,7 +1057,7 @@ export default function (pi: ExtensionAPI) {
             content: [
               { type: "text", text: `Error: ${targetContent.error}` },
             ],
-            details: { type: "fetch", url: targetContent.url, error: targetContent.error },
+            details: { type: "fetch", url: targetContent.url, error: targetContent.error, ptcValue: { type: "fetch", url: targetContent.url, error: targetContent.error } },
           };
         }
 
@@ -1036,6 +1069,7 @@ export default function (pi: ExtensionAPI) {
             url: targetContent.url,
             title: targetContent.title,
             charCount: targetContent.content.length,
+            ptcValue: { type: "fetch", url: targetContent.url, title: targetContent.title, content: targetContent.content, charCount: targetContent.content.length },
           },
         };
       }
@@ -1046,7 +1080,7 @@ export default function (pi: ExtensionAPI) {
         if (ctx.error) {
           return {
             content: [{ type: "text", text: `Error: ${ctx.error}` }],
-            details: { type: "context", query: ctx.query, error: ctx.error },
+            details: { type: "context", query: ctx.query, error: ctx.error, ptcValue: { type: "context", query: ctx.query, error: ctx.error } },
           };
         }
 
@@ -1056,6 +1090,7 @@ export default function (pi: ExtensionAPI) {
             type: "context",
             query: ctx.query,
             charCount: ctx.content.length,
+            ptcValue: { type: "context", query: ctx.query, content: ctx.content, charCount: ctx.content.length },
           },
         };
       }
