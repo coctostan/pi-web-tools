@@ -190,4 +190,25 @@ describe("config", () => {
     const config = getConfig();
     expect(config.tools.get_search_content).toBe(false);
   });
+
+  it("defaults cacheTTLMinutes to 1440 when missing", () => {
+    writeFileSync(configPath, JSON.stringify({}));
+    resetConfigCache();
+    const config = getConfig();
+    expect(config.cacheTTLMinutes).toBe(1440);
+  });
+
+  it("reads cacheTTLMinutes from config file", () => {
+    writeFileSync(configPath, JSON.stringify({ cacheTTLMinutes: 60 }));
+    resetConfigCache();
+    const config = getConfig();
+    expect(config.cacheTTLMinutes).toBe(60);
+  });
+
+  it("ignores non-number cacheTTLMinutes", () => {
+    writeFileSync(configPath, JSON.stringify({ cacheTTLMinutes: "abc" }));
+    resetConfigCache();
+    const config = getConfig();
+    expect(config.cacheTTLMinutes).toBe(1440);
+  });
 });

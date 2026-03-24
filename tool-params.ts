@@ -67,7 +67,7 @@ export function normalizeWebSearchInput(params: {
   return { queries: queryList, numResults, type, category, includeDomains, excludeDomains, detail, maxAgeHours, similarUrl };
 }
 
-export function normalizeFetchContentInput(params: { url?: unknown; urls?: unknown; forceClone?: unknown; prompt?: unknown }) {
+export function normalizeFetchContentInput(params: { url?: unknown; urls?: unknown; forceClone?: unknown; prompt?: unknown; noCache?: unknown }) {
   const url = typeof params.url === "string" ? params.url : undefined;
   const urls = Array.isArray(params.urls)
     ? params.urls.filter((u): u is string => typeof u === "string")
@@ -78,8 +78,9 @@ export function normalizeFetchContentInput(params: { url?: unknown; urls?: unkno
   }
   const forceClone = typeof params.forceClone === "boolean" ? params.forceClone : undefined;
   const prompt = typeof params.prompt === "string" ? params.prompt : undefined;
+  const noCache = typeof params.noCache === "boolean" ? params.noCache : undefined;
 
-  return { urls: dedupeUrls(urlList), forceClone, prompt };
+  return { urls: dedupeUrls(urlList), forceClone, prompt, noCache };
 }
 
 export function normalizeCodeSearchInput(params: {
