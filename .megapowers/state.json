@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "activeIssue": null,
-  "workflow": null,
-  "phase": null,
+  "activeIssue": "025-add-standalone-exa-tools-cli",
+  "workflow": "feature",
+  "phase": "brainstorm",
   "phaseHistory": [],
   "planMode": null,
   "planIteration": 0,
@@ -12,6 +12,6 @@
   "doneActions": [],
   "doneChecklistShown": false,
   "megaEnabled": true,
-  "branchName": null,
-  "baseBranch": null
+  "branchName": "feat/024-persistent-ttl-based-research-cache-for-",
+  "baseBranch": "main"
 }
