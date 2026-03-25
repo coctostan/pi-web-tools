@@ -175,6 +175,7 @@ Use it when you already know **which source you want to inspect**.
 | `urls` | `string[]` | Multiple URLs to fetch |
 | `prompt` | `string` | Ask a question about the content instead of returning the whole page |
 | `forceClone` | `boolean` | Force clone for large GitHub repos |
+| `noCache` | `boolean` | Skip research cache and fetch fresh (still updates cache) |
 
 #### Best practice for Pi beginners
 
@@ -270,11 +271,10 @@ get_search_content({ responseId: "xyz789", url: "https://vitest.dev/api/" })
 The package reads config from `~/.pi/web-tools.json` and hot-reloads it every 30 seconds.
 
 ### Full config example
-
-```json
 {
   "exaApiKey": "your-exa-key",
   "filterModel": "anthropic/claude-haiku-4-5",
+  "cacheTTLMinutes": 1440,
   "github": {
     "maxRepoSizeMB": 350,
     "cloneTimeoutSeconds": 30,
@@ -299,6 +299,7 @@ The package reads config from `~/.pi/web-tools.json` and hot-reloads it every 30
 | `github.cloneTimeoutSeconds` | Clone timeout |
 | `github.clonePath` | Cache directory for cloned repos |
 | `tools.*` | Enable or disable individual tools |
+| `cacheTTLMinutes` | TTL in minutes for the persistent research cache (default: `1440` = 24h) |
 
 To use a different config path:
 
@@ -457,6 +458,7 @@ exa-context.ts     Exa code/context search integration
 extract.ts         HTML/PDF content extraction
 github-extract.ts  GitHub repo and file handling
 filter.ts          Cheap-model filtering for focused answers
+research-cache.ts  Persistent TTL-based research cache
 storage.ts         Session result storage
 config.ts          Config loading and hot reload
 tool-params.ts     Tool input normalization and validation
@@ -464,12 +466,20 @@ retry.ts           Retry and backoff helpers
 offload.ts         Temp-file offload for raw content
 smart-search.ts    Query enhancement and deduplication
 truncation.ts      Response truncation helpers
+constants.ts       Shared constants (timeouts, TTLs)
 ```
 
 ## Changelog
 
-### 2.0.0
+### 3.0.0
 
+- `fetch_content` gained persistent research cache — repeated prompt+URL lookups return instant cached answers
+- `fetch_content` gained `noCache` param to bypass cache
+- `cacheTTLMinutes` config option (default 24h)
+- `details.ptcValue` on all 4 tools for PTC interop
+- multi-URL+prompt ptcValue shape cleaned up
+
+### 2.0.0
 - `fetch_content` gained `prompt` for focused question answering
 - `web_search` now returns summary-first results by default
 - raw fetches are always offloaded to temp files
