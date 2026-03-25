@@ -26,14 +26,22 @@
   "publishConfig": {
     "access": "public"
   },
+  "bin": {
+    "exa-tools": "dist/bin/exa-tools.js"
+  },
   "files": [
     "*.ts",
     "!*.test.ts",
     "!vitest.config.ts",
+    "bin/**/*",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
     "LICENSE",
     "README.md"
   ],
   "scripts": {
+    "build": "tsc -p tsconfig.json && node -e \"const fs=require('fs'); fs.mkdirSync('dist/bin',{recursive:true}); fs.copyFileSync('bin/exa-tools','dist/bin/exa-tools.js'); fs.chmodSync('dist/bin/exa-tools.js',0o755)\"",
+    "prepack": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest"
   },

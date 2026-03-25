@@ -73,6 +73,55 @@ fetch_content({
 })
 ```
 
+## Standalone CLI
+
+The package also ships a standalone `exa-tools` binary that works outside of Pi.
+
+### Install globally
+
+```bash
+npm install -g @coctostan/pi-exa-gh-web-tools
+```
+
+### Set your API key
+
+`search` and `code` commands require an Exa API key:
+
+```bash
+export EXA_API_KEY="your-key-here"
+```
+
+### Commands
+
+**Web search:**
+
+```bash
+exa-tools search "vitest mock fetch" --n 3
+```
+
+**Code search:**
+
+```bash
+exa-tools code "vitest mock fetch" --tokens 800
+```
+
+**Fetch a page (raw markdown):**
+
+```bash
+exa-tools fetch "https://vitest.dev/guide/mocking.html"
+```
+
+**Fetch with a focused question:**
+
+```bash
+exa-tools fetch "https://vitest.dev/guide/mocking.html" --prompt "How do I mock a function?"
+```
+
+### Output behavior
+
+- Successful output goes to **stdout**
+- Errors and warnings go to **stderr**
+- When `--prompt` is used but no filter model is available, the CLI prints a warning to stderr and falls back to raw markdown on stdout
 ## 30-second example
 
 If you've never used Pi tools before, this is the shortest useful workflow:
