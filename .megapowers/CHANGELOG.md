@@ -47,3 +47,9 @@
 - `noCache` parameter on `fetch_content`: bypasses cache read (always fetches fresh) while still updating the cache with the new result. (#024)
 - `cacheTTLMinutes` config field in `~/.pi/web-tools.json` (integer, minutes, default: 1440). (#024)
 - Multi-URL + prompt cache: each URL is independently cache-checked — some may hit cache while others miss. (#024)
+
+### Added (025)
+- Standalone `exa-tools` CLI binary: `search`, `code`, and `fetch` subcommands usable from any terminal without Pi. Reuses existing Exa search, code search, and content extraction modules. Includes `--n`, `--tokens`, and `--prompt` flags. Prompted fetch gracefully falls back to raw markdown when no filter model is available. (#025)
+- `bin` field in `package.json` mapping `exa-tools` → `dist/bin/exa-tools.js`. (#025)
+- `build` and `prepack` scripts for TypeScript compilation and binary packaging. (#025)
+- Standalone CLI installation and usage documentation in README. (#025)
