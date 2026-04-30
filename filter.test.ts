@@ -6,7 +6,7 @@ describe("resolveFilterModel", () => {
     const mockModel = { id: "claude-haiku-4-5", provider: "anthropic" };
     const mockRegistry = {
       find: vi.fn().mockReturnValue(mockModel),
-      getApiKey: vi.fn().mockResolvedValue("test-key"),
+      getApiKeyAndHeaders: vi.fn().mockResolvedValue({ ok: true, apiKey: "test-key" }),
     };
 
     const result = await resolveFilterModel(mockRegistry as any, "anthropic/claude-haiku-4-5");
@@ -21,7 +21,7 @@ describe("resolveFilterModel", () => {
         if (provider === "anthropic" && modelId === "claude-haiku-4-5") return haikuModel;
         return undefined;
       }),
-      getApiKey: vi.fn().mockResolvedValue("haiku-key"),
+      getApiKeyAndHeaders: vi.fn().mockResolvedValue({ ok: true, apiKey: "haiku-key" }),
     };
 
     const result = await resolveFilterModel(mockRegistry as any, undefined);
@@ -37,7 +37,7 @@ describe("resolveFilterModel", () => {
         if (provider === "openai" && modelId === "gpt-4o-mini") return gptModel;
         return undefined;
       }),
-      getApiKey: vi.fn().mockResolvedValue("openai-key"),
+      getApiKeyAndHeaders: vi.fn().mockResolvedValue({ ok: true, apiKey: "openai-key" }),
     };
 
     const result = await resolveFilterModel(mockRegistry as any, undefined);
@@ -47,7 +47,7 @@ describe("resolveFilterModel", () => {
   it("returns no-model when neither Haiku nor GPT-4o-mini is available", async () => {
     const mockRegistry = {
       find: vi.fn().mockReturnValue(undefined),
-      getApiKey: vi.fn().mockResolvedValue(undefined),
+      getApiKeyAndHeaders: vi.fn().mockResolvedValue({ ok: true }),
     };
 
     const result = await resolveFilterModel(mockRegistry as any, undefined);
@@ -63,10 +63,10 @@ describe("resolveFilterModel", () => {
         if (provider === "openai" && modelId === "gpt-4o-mini") return gptModel;
         return undefined;
       }),
-      getApiKey: vi.fn().mockImplementation(async (model: any) => {
-        if (model.id === "claude-haiku-4-5") return undefined;
-        if (model.id === "gpt-4o-mini") return "openai-key";
-        return undefined;
+      getApiKeyAndHeaders: vi.fn().mockImplementation(async (model: any) => {
+        if (model.id === "claude-haiku-4-5") return { ok: true };
+        if (model.id === "gpt-4o-mini") return { ok: true, apiKey: "openai-key" };
+        return { ok: true };
       }),
     };
 
@@ -81,7 +81,7 @@ describe("filterContent", () => {
     const mockModel = { id: "claude-haiku-4-5", provider: "anthropic", api: "anthropic-messages", baseUrl: "https://api.anthropic.com" };
     const mockRegistry = {
       find: vi.fn().mockReturnValue(mockModel),
-      getApiKey: vi.fn().mockResolvedValue("test-key"),
+      getApiKeyAndHeaders: vi.fn().mockResolvedValue({ ok: true, apiKey: "test-key", headers: { "x-test": "1" } }),
     };
 
     const mockComplete = vi.fn().mockResolvedValue({
@@ -102,6 +102,7 @@ describe("filterContent", () => {
     const [model, context, options] = mockComplete.mock.calls[0];
     expect(model).toBe(mockModel);
     expect(options.apiKey).toBe("test-key");
+    expect(options.headers).toEqual({ "x-test": "1" });
     expect(context.messages).toHaveLength(1);
     expect(context.messages[0].role).toBe("user");
     // System prompt should be in context
@@ -113,7 +114,7 @@ describe("filterContent", () => {
     const mockModel = { id: "claude-haiku-4-5", provider: "anthropic", api: "anthropic-messages", baseUrl: "https://api.anthropic.com" };
     const mockRegistry = {
       find: vi.fn().mockReturnValue(mockModel),
-      getApiKey: vi.fn().mockResolvedValue("test-key"),
+      getApiKeyAndHeaders: vi.fn().mockResolvedValue({ ok: true, apiKey: "test-key" }),
     };
 
     const mockComplete = vi.fn().mockRejectedValue(new Error("Rate limit exceeded"));
@@ -133,7 +134,7 @@ describe("filterContent", () => {
     const mockModel = { id: "claude-haiku-4-5", provider: "anthropic", api: "anthropic-messages", baseUrl: "https://api.anthropic.com" };
     const mockRegistry = {
       find: vi.fn().mockReturnValue(mockModel),
-      getApiKey: vi.fn().mockResolvedValue("test-key"),
+      getApiKeyAndHeaders: vi.fn().mockResolvedValue({ ok: true, apiKey: "test-key" }),
     };
 
     const mockComplete = vi.fn().mockResolvedValue({
@@ -155,7 +156,7 @@ describe("filterContent", () => {
     const mockModel = { id: "claude-haiku-4-5", provider: "anthropic", api: "anthropic-messages", baseUrl: "https://api.anthropic.com" };
     const mockRegistry = {
       find: vi.fn().mockReturnValue(mockModel),
-      getApiKey: vi.fn().mockResolvedValue("test-key"),
+      getApiKeyAndHeaders: vi.fn().mockResolvedValue({ ok: true, apiKey: "test-key" }),
     };
 
     const mockComplete = vi.fn().mockResolvedValue({

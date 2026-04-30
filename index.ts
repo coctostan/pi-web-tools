@@ -136,13 +136,6 @@ export default function (pi: ExtensionAPI) {
     handleSessionStart(ctx);
   });
 
-  pi.on("session_switch", async (_event, ctx) => {
-    handleSessionStart(ctx);
-  });
-
-  pi.on("session_fork", async (_event, ctx) => {
-    handleSessionStart(ctx);
-  });
 
   pi.on("session_tree", async (_event, ctx) => {
     handleSessionStart(ctx);

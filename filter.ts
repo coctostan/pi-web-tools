@@ -1,22 +1,18 @@
 import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
 import type { Api, AssistantMessage, Context, Model, ProviderStreamOptions } from "@mariozechner/pi-ai";
 
-type MinimalModel = { id: string; provider: string };
+type RequestAuth = {
+  apiKey?: string;
+  headers?: Record<string, string>;
+};
+
+type ResolvedRequestAuth =
+  | ({ ok: true } & RequestAuth)
+  | { ok: false; error: string };
 
 export type FilterModelResult =
-  | { model: MinimalModel; apiKey: string }
+  | ({ model: Model<Api> } & RequestAuth)
   | { model: null; reason: string };
-
-const AUTO_DETECT_MODELS = [
-  { provider: "anthropic", modelId: "claude-haiku-4-5" },
-  { provider: "openai", modelId: "gpt-4o-mini" },
-] as const;
-
-type CompleteFn = (model: Model<Api>, context: Context, options?: ProviderStreamOptions) => Promise<AssistantMessage>;
-
-export type FilterResult =
-  | { filtered: string; model: string }
-  | { filtered: null; reason: string };
 
 const FILTER_SYSTEM_PROMPT = `You are a content extraction assistant. Your job is to answer the user's question using ONLY the provided page content.
 
@@ -28,6 +24,44 @@ Rules:
 - Do not use any knowledge from your training data — only the provided content`;
 
 const MIN_FILTER_RESPONSE_LENGTH = 20;
+
+const AUTO_DETECT_MODELS = [
+  { provider: "anthropic", modelId: "claude-haiku-4-5" },
+  { provider: "openai", modelId: "gpt-4o-mini" },
+] as const;
+
+type CompleteFn = (
+  model: Model<Api>,
+  context: Context,
+  options?: ProviderStreamOptions
+) => Promise<AssistantMessage>;
+
+export type FilterResult =
+  | { filtered: string; model: string; reason?: never }
+  | { filtered: null; reason: string; model?: never };
+
+function hasRequestAuth(auth: RequestAuth): boolean {
+  return Boolean(auth.apiKey) || (auth.headers !== undefined && Object.keys(auth.headers).length > 0);
+}
+
+async function getModelRequestAuth(
+  registry: ModelRegistry,
+  model: Model<Api>
+): Promise<ResolvedRequestAuth> {
+  try {
+    return await registry.getApiKeyAndHeaders(model);
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+function buildFilterModelResult(model: Model<Api>, auth: RequestAuth): FilterModelResult {
+  const result: { model: Model<Api>; apiKey?: string; headers?: Record<string, string> } = { model };
+  if (auth.apiKey) result.apiKey = auth.apiKey;
+  if (auth.headers && Object.keys(auth.headers).length > 0) result.headers = auth.headers;
+  return result;
+}
+
 export async function resolveFilterModel(
   registry: ModelRegistry,
   configuredModel?: string
@@ -39,22 +73,24 @@ export async function resolveFilterModel(
     if (provider && modelId) {
       const model = registry.find(provider, modelId);
       if (model) {
-        const apiKey = await registry.getApiKey(model);
-        if (apiKey) {
-          return { model, apiKey };
+        const auth = await getModelRequestAuth(registry, model);
+        if (auth.ok && hasRequestAuth(auth)) {
+          return buildFilterModelResult(model, auth);
         }
+        const authReason = auth.ok ? "no API key or request headers" : auth.error;
+        return { model: null, reason: `Configured filterModel "${configuredModel}" not available (${authReason})` };
       }
     }
-    return { model: null, reason: `Configured filterModel "${configuredModel}" not available (no model or API key)` };
+    return { model: null, reason: `Configured filterModel "${configuredModel}" not available (no model)` };
   }
 
   // 2. Auto-detect: try each candidate
   for (const candidate of AUTO_DETECT_MODELS) {
     const model = registry.find(candidate.provider, candidate.modelId);
     if (!model) continue;
-    const apiKey = await registry.getApiKey(model);
-    if (apiKey) {
-      return { model, apiKey };
+    const auth = await getModelRequestAuth(registry, model);
+    if (auth.ok && hasRequestAuth(auth)) {
+      return buildFilterModelResult(model, auth);
     }
   }
 
@@ -69,11 +105,11 @@ export async function filterContent(
   completeFn: CompleteFn
 ): Promise<FilterResult> {
   const resolved = await resolveFilterModel(registry, configuredModel);
-  if (!resolved.model || !("apiKey" in resolved)) {
+  if (!resolved.model) {
     return { filtered: null, reason: resolved.reason };
   }
 
-  const { model, apiKey } = resolved as { model: Model<Api>; apiKey: string };
+  const { model, apiKey, headers } = resolved;
 
   try {
     const context: Context = {
@@ -86,7 +122,7 @@ export async function filterContent(
         },
       ],
     };
-    const response = await completeFn(model, context, { apiKey });
+    const response = await completeFn(model, context, { apiKey, headers });
     const answer = response.content
       .filter((c): c is { type: "text"; text: string } => c.type === "text")
       .map((c) => c.text)
