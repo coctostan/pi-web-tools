@@ -57,18 +57,18 @@
     "@sinclair/typebox": "*"
   },
   "dependencies": {
-    "@mozilla/readability": "^0.5.0",
-    "linkedom": "^0.16.0",
-    "p-limit": "^6.1.0",
+    "@mozilla/readability": "^0.6.0",
+    "linkedom": "^0.18.0",
+    "p-limit": "^7.0.0",
     "pdf-parse": "^2.4.5",
     "turndown": "^7.2.0"
   },
   "devDependencies": {
-    "@mariozechner/pi-ai": "^0.70.6",
-    "@mariozechner/pi-coding-agent": "^0.70.6",
-    "@mariozechner/pi-tui": "^0.70.6",
+    "@mariozechner/pi-ai": "^0.72.1",
+    "@mariozechner/pi-coding-agent": "^0.72.1",
+    "@mariozechner/pi-tui": "^0.72.1",
     "@sinclair/typebox": "^0.34.49",
-    "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
+    "typescript": "^6.0.0",
+    "vitest": "^4.0.0"
   }
 }

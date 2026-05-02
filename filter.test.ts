@@ -51,7 +51,7 @@ describe("resolveFilterModel", () => {
     };
 
     const result = await resolveFilterModel(mockRegistry as any, undefined);
-    expect(result).toEqual({ model: null, reason: "No filter model available (tried anthropic/claude-haiku-4-5, openai/gpt-4o-mini)" });
+    expect(result).toEqual({ model: null, reason: "No filter model available (tried synthetic/hf:nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4, openrouter/free, anthropic/claude-haiku-4-5, openai/gpt-4o-mini)" });
   });
 
   it("skips Haiku when model exists but no API key, falls to GPT-4o-mini", async () => {
