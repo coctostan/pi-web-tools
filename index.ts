@@ -390,8 +390,12 @@ export default function (pi: ExtensionAPI) {
       return new Text(text, 0, 0);
     },
 
-    renderResult(result, { expanded, isPartial }, theme) {
-      if ((result as any).isError) {
+    renderResult(result, { expanded, isPartial }, theme, context) {
+      if (context.isError) {
+        const detail = result.details as Record<string, unknown>;
+        if (detail?.error) {
+          return new Text(theme.fg("error", `Error: ${detail.error}`), 0, 0);
+        }
         const errText = result.content[0];
         const msg = errText?.type === "text" ? errText.text : "Error";
         return new Text(theme.fg("error", msg), 0, 0);
@@ -513,6 +517,7 @@ export default function (pi: ExtensionAPI) {
           const r = results[0];
           if (r.error) {
             return {
+              isError: true,
               content: [{ type: "text", text: `Error fetching ${r.url}: ${r.error}` }],
               details: { responseId, url: r.url, error: r.error, ptcValue: { responseId, urls: [{ url: r.url, title: null, content: null, filtered: null, filePath: null, charCount: null, error: r.error }], successCount: 0, totalCount: 1 } },
             };
@@ -791,27 +796,24 @@ export default function (pi: ExtensionAPI) {
       return new Text(text, 0, 0);
     },
 
-    renderResult(result, { expanded: _expanded, isPartial }, theme) {
-      if ((result as any).isError) {
-        const errText = result.content[0];
-        const msg = errText?.type === "text" ? errText.text : "Error";
-        return new Text(theme.fg("error", msg), 0, 0);
+    renderResult(result, { expanded: _expanded, isPartial }, theme, context) {
+      if (context.isError) {
+        const detail = result.details as Record<string, unknown>;
+        if (detail?.error) {
+          return new Text(theme.fg("error", `Error: ${detail.error}`), 0, 0);
+        }
+        const text = result.content.filter((c): c is {type: "text"; text: string} => c.type === "text" && typeof (c as {text?: string}).text === "string").map((c) => (c as {text: string}).text).join("\n");
+        return new Text(theme.fg("error", text || "Error"), 0, 0);
       }
 
       if (isPartial) {
         return new Text(theme.fg("warning", "Fetching..."), 0, 0);
       }
 
-      const details = result.details as {
-        title?: string;
-        charCount?: number;
-        truncated?: boolean;
-        successCount?: number;
-        totalCount?: number;
-      } | undefined;
+      const details = result.details as Record<string, unknown> | undefined;
 
       // Multiple URLs
-      if (details?.totalCount !== undefined) {
+      if (details?.totalCount !== undefined && details?.successCount !== undefined) {
         const text = theme.fg(
           "success",
           `${details.successCount}/${details.totalCount} fetched`
@@ -822,7 +824,7 @@ export default function (pi: ExtensionAPI) {
       // Single URL
       let text = "";
       if (details?.title) {
-        text += theme.fg("success", details.title);
+        text += theme.fg("success", String(details.title));
       }
       if (details?.charCount !== undefined) {
         text += theme.fg("dim", ` (${details.charCount} chars)`);
@@ -925,8 +927,12 @@ export default function (pi: ExtensionAPI) {
         return new Text(text, 0, 0);
       },
 
-      renderResult(result, { expanded, isPartial }, theme) {
-        if ((result as any).isError) {
+      renderResult(result, { expanded, isPartial }, theme, context) {
+        if (context.isError) {
+          const detail = result.details as Record<string, unknown>;
+          if (detail?.error) {
+            return new Text(theme.fg("error", `Error: ${detail.error}`), 0, 0);
+          }
           const errText = result.content[0];
           const msg = errText?.type === "text" ? errText.text : "Error";
           return new Text(theme.fg("error", msg), 0, 0);
@@ -1138,8 +1144,12 @@ export default function (pi: ExtensionAPI) {
       return new Text(text, 0, 0);
     },
 
-    renderResult(result, { expanded, isPartial: _isPartial }, theme) {
-      if ((result as any).isError) {
+    renderResult(result, { expanded, isPartial: _isPartial }, theme, context) {
+      if (context.isError) {
+        const detail = result.details as Record<string, unknown>;
+        if (detail?.error) {
+          return new Text(theme.fg("error", `Error: ${detail.error}`), 0, 0);
+        }
         const errText = result.content[0];
         const msg = errText?.type === "text" ? errText.text : "Error";
         return new Text(theme.fg("error", msg), 0, 0);
