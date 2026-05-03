@@ -362,6 +362,7 @@ export default function (pi: ExtensionAPI) {
             successfulQueries,
             totalResults,
             responseId: searchId,
+            error: successfulQueries === 0 ? "All queries failed" : undefined,
             ptcValue: {
               responseId: searchId,
               queries: results.map(r => ({
@@ -781,6 +782,7 @@ export default function (pi: ExtensionAPI) {
           details: {
             responseId,
             successCount,
+            error: successCount === 0 ? "All URLs failed" : undefined,
             totalCount: results.length,
             ptcValue: { responseId, urls: ptcUrls, successCount, totalCount: results.length },
           },
@@ -1032,7 +1034,7 @@ export default function (pi: ExtensionAPI) {
           }
           return {
             content: [{ type: "text", text: truncateContent(lines.join("\n"), maxChars) }],
-            details: { type: "search", queryCount: stored.queries.length, ptcValue: { type: "search", queries: stored.queries.map(q => ({ query: q.query, results: q.results, error: q.error })) } },
+            details: { type: "search", error: stored.queries.some(q => q.error) ? "Some queries returned errors" : undefined, queryCount: stored.queries.length, ptcValue: { type: "search", queries: stored.queries.map(q => ({ query: q.query, results: q.results, error: q.error })) } },
           };
         }
 
@@ -1050,6 +1052,7 @@ export default function (pi: ExtensionAPI) {
             type: "search",
             query: targetQuery.query,
             resultCount: targetQuery.results.length,
+            error: targetQuery.error || undefined,
             ptcValue: { type: "search", query: targetQuery.query, results: targetQuery.results, error: targetQuery.error },
           },
         };
@@ -1092,7 +1095,7 @@ export default function (pi: ExtensionAPI) {
           lines.push("Specify url or urlIndex to retrieve full content.");
           return {
             content: [{ type: "text", text: truncateContent(lines.join("\n"), maxChars) }],
-            details: { type: "fetch", urlCount: stored.urls.length, ptcValue: { type: "fetch", urls: stored.urls.map(u => ({ url: u.url, title: u.title || null, charCount: u.error ? null : u.content.length, error: u.error || null })) } },
+            details: { type: "fetch", error: stored.urls.some(u => u.error) ? "Some URLs returned errors" : undefined, urlCount: stored.urls.length, ptcValue: { type: "fetch", urls: stored.urls.map(u => ({ url: u.url, title: u.title || null, charCount: u.error ? null : u.content.length, error: u.error || null })) } },
           };
         }
 
