@@ -152,6 +152,12 @@ export default function (pi: ExtensionAPI) {
     if (!ourTools.has(event.toolName)) return;
     if (event.isError) return;
 
+    // pi-agent-core ignores isError on tool return values (line 385 of
+    // agent-loop.js), so we signal errors through the tool_result hook.
+    if ((event.details as Record<string, unknown> | undefined)?.error) {
+      return { isError: true };
+    }
+
     // Check if any text content exceeds threshold
     const textContent = event.content.find(
       (c): c is { type: "text"; text: string } => c.type === "text"
