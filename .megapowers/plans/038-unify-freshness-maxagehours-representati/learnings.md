@@ -1,0 +1,5 @@
+- The tool schema is a public documentation surface too; README updates are not enough when model-facing parameter descriptions can drift.
+- Keeping `freshness` canonical made the Exa boundary easier to test because request-body assertions now prove exactly where `maxAgeHours` is introduced.
+- `freshness: "any"` needs special handling in warning paths because it is a no-op/default-equivalent value, not a meaningful ignored filter.
+- Review-phase adversarial feedback caught schema and warning edge cases that the initial acceptance criteria did not isolate as separate tests.
+- Avoiding `Array.prototype.at()` in tests keeps compatibility with the project's current TypeScript lib target.

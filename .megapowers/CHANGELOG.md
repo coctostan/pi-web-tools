@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Changed
+- Use canonical `freshness` throughout `web_search`, deriving Exa `maxAgeHours` only at the `/search` request boundary; clarify `"realtime"` as last 1 hour in README and tool schema. (#038)
 - Modernize the extension for pi 0.74.x: forward pi-native abort signals directly, branch `session_start` by reason, move tool normalization into `prepareArguments`, and bump package metadata to `4.1.0`. (#040)
 
 ### Fixed

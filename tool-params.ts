@@ -2,13 +2,15 @@ export function dedupeUrls(urls: string[]): string[] {
   return [...new Set(urls)];
 }
 
+import type { Freshness } from "./exa-search.js";
+
 const VALID_SEARCH_TYPES = new Set(["auto", "instant", "deep"]);
 const VALID_CATEGORIES = new Set([
   "company", "research paper", "news", "tweet",
   "people", "personal site", "financial report", "pdf",
 ]);
 const VALID_DETAIL_VALUES = new Set(["summary", "highlights"]);
-const FRESHNESS_MAP: Record<string, number | undefined> = { realtime: 1, day: 24, week: 168, any: undefined };
+const VALID_FRESHNESS_VALUES = new Set(["realtime", "day", "week", "any"]);
 
 export type NormalizedWebSearchInput = {
   queries: string[];
@@ -18,7 +20,7 @@ export type NormalizedWebSearchInput = {
   includeDomains?: string[];
   excludeDomains?: string[];
   detail?: "summary" | "highlights";
-  maxAgeHours?: number;
+  freshness?: Freshness;
   similarUrl?: string;
 };
 
@@ -96,11 +98,11 @@ export function normalizeWebSearchInput(params: {
     ? params.detail as "summary" | "highlights"
     : undefined;
 
-  const maxAgeHours = typeof params.freshness === "string" && params.freshness in FRESHNESS_MAP
-    ? FRESHNESS_MAP[params.freshness]
+  const freshness = typeof params.freshness === "string" && VALID_FRESHNESS_VALUES.has(params.freshness)
+    ? params.freshness as Freshness
     : undefined;
 
-  return { queries: queryList, numResults, type, category, includeDomains, excludeDomains, detail, maxAgeHours, similarUrl };
+  return { queries: queryList, numResults, type, category, includeDomains, excludeDomains, detail, freshness, similarUrl };
 }
 
 export function normalizeFetchContentInput(params: { url?: unknown; urls?: unknown; forceClone?: unknown; prompt?: unknown; noCache?: unknown }): NormalizedFetchContentInput {

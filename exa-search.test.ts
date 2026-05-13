@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { searchExa, findSimilarExa, formatSearchResults, type ExaSearchResult } from "./exa-search.js";
+import { searchExa, findSimilarExa, formatSearchResults, exaMaxAgeHoursForFreshness, type ExaSearchResult } from "./exa-search.js";
 
 describe("exa-search", () => {
   const mockFetch = vi.fn();
@@ -69,6 +69,14 @@ describe("exa-search", () => {
       await expect(searchExa("test query", { apiKey: null })).rejects.toThrow("EXA_API_KEY");
       // Error should also mention config file
       await expect(searchExa("test query", { apiKey: null })).rejects.toThrow("web-tools.json");
+    });
+
+    it("maps canonical freshness values to Exa maxAgeHours", () => {
+      expect(exaMaxAgeHoursForFreshness("realtime")).toBe(1);
+      expect(exaMaxAgeHoursForFreshness("day")).toBe(24);
+      expect(exaMaxAgeHoursForFreshness("week")).toBe(168);
+      expect(exaMaxAgeHoursForFreshness("any")).toBeUndefined();
+      expect(exaMaxAgeHoursForFreshness(undefined)).toBeUndefined();
     });
 
     it("sends correct request to Exa API", async () => {
@@ -249,27 +257,36 @@ describe("exa-search", () => {
       expect(body.excludeDomains).toEqual(["pinterest.com"]);
     });
 
-    it("includes maxAgeHours in request body when provided", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ results: [] }),
-      });
+    it("derives maxAgeHours from canonical freshness in /search requests", async () => {
+      const cases = [
+        ["realtime", 1],
+        ["day", 24],
+        ["week", 168],
+      ] as const;
 
-      await searchExa("test", { apiKey: "key", maxAgeHours: 24 });
+      for (const [freshness, expectedMaxAgeHours] of cases) {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ results: [] }),
+        });
 
-      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(body.maxAgeHours).toBe(24);
+        await searchExa("test", { apiKey: "key", freshness });
+
+        const body = JSON.parse(mockFetch.mock.calls[mockFetch.mock.calls.length - 1][1].body);
+        expect(body.maxAgeHours).toBe(expectedMaxAgeHours);
+        expect(body.maxAgeHours).not.toBe(0);
+      }
     });
 
-    it("omits maxAgeHours from request body when not provided", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ results: [] }),
-      });
+    it("omits maxAgeHours from /search requests for any or omitted freshness", async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ results: [] }) });
+      await searchExa("test", { apiKey: "key", freshness: "any" });
+      let body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.maxAgeHours).toBeUndefined();
 
+      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ results: [] }) });
       await searchExa("test", { apiKey: "key" });
-
-      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      body = JSON.parse(mockFetch.mock.calls[1][1].body);
       expect(body.maxAgeHours).toBeUndefined();
     });
 
@@ -521,13 +538,13 @@ describe("exa-search", () => {
   });
 
   describe("findSimilarExa — BUG #019: filters silently dropped", () => {
-    it("findSimilarExa does NOT forward maxAgeHours to /findSimilar (endpoint does not support it)", async () => {
+    it("findSimilarExa does NOT forward freshness-derived maxAgeHours to /findSimilar (endpoint does not support it)", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ results: [] }),
       });
 
-      await findSimilarExa("https://example.com", { apiKey: "key", maxAgeHours: 24 });
+      await findSimilarExa("https://example.com", { apiKey: "key", freshness: "day" });
       const body = JSON.parse(mockFetch.mock.calls[0][1].body);
       // maxAgeHours is a ContentsRequest field (livecrawl control), not a CommonRequest filter.
       // /findSimilar uses CommonRequest — maxAgeHours must NOT appear in the request body.

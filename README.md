@@ -187,7 +187,7 @@ Use it when you want to decide **which URL is worth reading next**.
 | `numResults` | `number` | Results per query, default `5`, max `20` |
 | `type` | `string` | `"auto"` (default), `"instant"`, or `"deep"` |
 | `detail` | `string` | `"summary"` (default) or `"highlights"` |
-| `freshness` | `string` | `"realtime"`, `"day"`, `"week"`, or `"any"` |
+| `freshness` | `string` | `"realtime"` (last 1 hour), `"day"` (24h), `"week"` (168h), or `"any"` (no freshness filter) |
 | `category` | `string` | Content category filter |
 | `includeDomains` | `string[]` | Only include these domains |
 | `excludeDomains` | `string[]` | Exclude these domains |
