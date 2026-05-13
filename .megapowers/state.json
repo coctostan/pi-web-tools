@@ -2,16 +2,59 @@
   "version": 1,
   "activeIssue": "039-adapt-pi-web-tools-to-pi-0-74-x-rescope-",
   "workflow": "bugfix",
-  "phase": "reproduce",
-  "phaseHistory": [],
+  "phase": "done",
+  "phaseHistory": [
+    {
+      "from": "reproduce",
+      "to": "diagnose",
+      "timestamp": 1778687985584
+    },
+    {
+      "from": "diagnose",
+      "to": "plan",
+      "timestamp": 1778688431212
+    },
+    {
+      "from": "plan",
+      "to": "implement",
+      "timestamp": 1778689872279
+    },
+    {
+      "from": "implement",
+      "to": "verify",
+      "timestamp": 1778692463150
+    },
+    {
+      "from": "verify",
+      "to": "done",
+      "timestamp": 1778692696382
+    }
+  ],
   "planMode": null,
-  "planIteration": 0,
-  "currentTaskIndex": 0,
-  "completedTasks": [],
+  "planIteration": 1,
+  "currentTaskIndex": 9,
+  "completedTasks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
   "tddTaskState": null,
-  "doneActions": [],
-  "doneChecklistShown": false,
+  "doneActions": [
+    "generate-bugfix-summary",
+    "write-changelog",
+    "capture-learnings",
+    "push-and-pr",
+    "close-issue"
+  ],
+  "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "feat/024-persistent-ttl-based-research-cache-for-",
+  "branchName": "fix/039-adapt-pi-web-tools-to-pi-0-74-x-rescope-",
   "baseBranch": "main"
 }
