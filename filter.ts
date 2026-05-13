@@ -1,10 +1,21 @@
-import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
-import type { Api, AssistantMessage, Context, Model, ProviderStreamOptions } from "@mariozechner/pi-ai";
+import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
+import type { Api, AssistantMessage, Context, Model, ProviderStreamOptions } from "@earendil-works/pi-ai";
 
 type MinimalModel = { id: string; provider: string };
 
+// ModelRegistry.getApiKeyAndHeaders exists on @earendil-works/* 0.74+ but not on
+// the legacy @mariozechner/* type declarations. We import types from the legacy
+// scope through Task 4 (Task 5 flips the source imports); cast at the call site
+// to keep type-safety from the structural ResolvedRequestAuth shape.
+type ResolvedRequestAuth =
+  | { ok: true; apiKey?: string; headers?: Record<string, string> }
+  | { ok: false; error: string };
+type RegistryWithAuthHeaders = {
+  getApiKeyAndHeaders: (m: Model<Api>) => Promise<ResolvedRequestAuth>;
+};
+
 export type FilterModelResult =
-  | { model: MinimalModel; apiKey: string }
+  | { model: MinimalModel; apiKey: string; headers?: Record<string, string> }
   | { model: null; reason: string };
 
 const AUTO_DETECT_MODELS = [
@@ -28,6 +39,18 @@ Rules:
 - Do not use any knowledge from your training data — only the provided content`;
 
 const MIN_FILTER_RESPONSE_LENGTH = 20;
+
+async function tryResolve(
+  registry: ModelRegistry,
+  model: MinimalModel
+): Promise<{ apiKey: string; headers?: Record<string, string> } | null> {
+  const auth = await (registry as unknown as RegistryWithAuthHeaders).getApiKeyAndHeaders(model as Model<Api>);
+  if (auth.ok && auth.apiKey) {
+    return { apiKey: auth.apiKey, headers: auth.headers };
+  }
+  return null;
+}
+
 export async function resolveFilterModel(
   registry: ModelRegistry,
   configuredModel?: string
@@ -39,9 +62,9 @@ export async function resolveFilterModel(
     if (provider && modelId) {
       const model = registry.find(provider, modelId);
       if (model) {
-        const apiKey = await registry.getApiKey(model);
-        if (apiKey) {
-          return { model, apiKey };
+        const auth = await tryResolve(registry, model);
+        if (auth) {
+          return { model, apiKey: auth.apiKey, headers: auth.headers };
         }
       }
     }
@@ -52,9 +75,9 @@ export async function resolveFilterModel(
   for (const candidate of AUTO_DETECT_MODELS) {
     const model = registry.find(candidate.provider, candidate.modelId);
     if (!model) continue;
-    const apiKey = await registry.getApiKey(model);
-    if (apiKey) {
-      return { model, apiKey };
+    const auth = await tryResolve(registry, model);
+    if (auth) {
+      return { model, apiKey: auth.apiKey, headers: auth.headers };
     }
   }
 
@@ -69,11 +92,15 @@ export async function filterContent(
   completeFn: CompleteFn
 ): Promise<FilterResult> {
   const resolved = await resolveFilterModel(registry, configuredModel);
-  if (!resolved.model || !("apiKey" in resolved)) {
+  if (!resolved.model) {
     return { filtered: null, reason: resolved.reason };
   }
 
-  const { model, apiKey } = resolved as { model: Model<Api>; apiKey: string };
+  const { model, apiKey, headers } = resolved as {
+    model: Model<Api>;
+    apiKey: string;
+    headers?: Record<string, string>;
+  };
 
   try {
     const context: Context = {
@@ -86,7 +113,7 @@ export async function filterContent(
         },
       ],
     };
-    const response = await completeFn(model, context, { apiKey });
+    const response = await completeFn(model, context, { apiKey, headers });
     const answer = response.content
       .filter((c): c is { type: "text"; text: string } => c.type === "text")
       .map((c) => c.text)

@@ -1,4 +1,37 @@
-// Tests for filter.ts — getApiKeyAndHeaders contract.
+---
+id: 2
+title: Migrate filter.ts to ModelRegistry.getApiKeyAndHeaders + thread headers
+status: approved
+depends_on:
+  - 1
+no_test: false
+files_to_modify:
+  - filter.ts
+  - filter.test.ts
+files_to_create: []
+---
+
+Addresses **Fixed When #2** (issue #027). `resolveFilterModel` switches from the removed `registry.getApiKey(model): Promise<string|undefined>` to `registry.getApiKeyAndHeaders(model): Promise<ResolvedRequestAuth>`, where:
+
+```
+type ResolvedRequestAuth =
+  | { ok: true; apiKey?: string; headers?: Record<string,string> }
+  | { ok: false; error: string };
+```
+
+`FilterModelResult.ok-branch` gains optional `headers`. `filterContent` threads `{ apiKey, headers }` into `completeFn`.
+
+Imports stay on `@mariozechner/*` for this task (Task 5 flips the scope) — both legacy and new scopes expose the same `ResolvedRequestAuth` shape, so this task is independent of the rescope and runs first.
+
+**Files:**
+- Modify: `filter.ts`
+- Modify: `filter.test.ts`
+
+**Step 1 — Write the failing tests**
+
+Replace the entire body of `filter.test.ts` with the following. The new tests assert the `getApiKeyAndHeaders` contract; the existing `getApiKey` mocks must go.
+
+```ts
 import { describe, it, expect, vi } from "vitest";
 import { resolveFilterModel, filterContent } from "./filter.js";
 
@@ -215,5 +248,155 @@ describe("filterContent", () => {
     const result = await filterContent("page", "q", mockRegistry as any, undefined, mockComplete);
     expect(result).toEqual({ filtered: null, reason: "Filter response too short (0 chars)" });
   });
-
 });
+```
+
+**Step 2 — Run test, verify it fails**
+
+Run: `npx vitest run filter.test.ts`
+
+Expected: FAIL — assertions including:
+- `AssertionError: expected { model: …, apiKey: 'test-key' } to deeply equal { model: …, apiKey: 'test-key', headers: undefined }` (existing `resolveFilterModel` returns 2 keys, test asserts 3)
+- For the new headers test: `expected undefined to equal { 'anthropic-beta': 'oauth-2025-04-20' }`
+- For `ok:false` test: the prod path still calls `registry.getApiKey` (not on mock) → `TypeError: registry.getApiKey is not a function`
+
+Concrete first error printed (from the rewritten suite): `TypeError: registry.getApiKey is not a function` thrown from `filter.ts:42` when the `ok:true` test runs against unchanged `filter.ts`.
+
+**Step 3 — Write minimal implementation**
+
+Replace `filter.ts` content with:
+
+```ts
+import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
+import type { Api, AssistantMessage, Context, Model, ProviderStreamOptions } from "@mariozechner/pi-ai";
+
+type MinimalModel = { id: string; provider: string };
+
+export type FilterModelResult =
+  | { model: MinimalModel; apiKey: string; headers?: Record<string, string> }
+  | { model: null; reason: string };
+
+const AUTO_DETECT_MODELS = [
+  { provider: "anthropic", modelId: "claude-haiku-4-5" },
+  { provider: "openai", modelId: "gpt-4o-mini" },
+] as const;
+
+type CompleteFn = (model: Model<Api>, context: Context, options?: ProviderStreamOptions) => Promise<AssistantMessage>;
+
+export type FilterResult =
+  | { filtered: string; model: string }
+  | { filtered: null; reason: string };
+
+const FILTER_SYSTEM_PROMPT = `You are a content extraction assistant. Your job is to answer the user's question using ONLY the provided page content.
+
+Rules:
+- Answer using ONLY information found in the provided content
+- Include relevant code snippets verbatim — do not paraphrase or modify code
+- Be concise and direct — typically 200-1000 characters
+- If the content does not answer the question, say "The provided content does not contain information about [topic]."
+- Do not use any knowledge from your training data — only the provided content`;
+
+const MIN_FILTER_RESPONSE_LENGTH = 20;
+
+async function tryResolve(
+  registry: ModelRegistry,
+  model: MinimalModel
+): Promise<{ apiKey: string; headers?: Record<string, string> } | null> {
+  const auth = await registry.getApiKeyAndHeaders(model as Model<Api>);
+  if (auth.ok && auth.apiKey) {
+    return { apiKey: auth.apiKey, headers: auth.headers };
+  }
+  return null;
+}
+
+export async function resolveFilterModel(
+  registry: ModelRegistry,
+  configuredModel?: string
+): Promise<FilterModelResult> {
+  // 1. Try configured model
+  if (configuredModel) {
+    const [provider, ...idParts] = configuredModel.split("/");
+    const modelId = idParts.join("/");
+    if (provider && modelId) {
+      const model = registry.find(provider, modelId);
+      if (model) {
+        const auth = await tryResolve(registry, model);
+        if (auth) {
+          return { model, apiKey: auth.apiKey, headers: auth.headers };
+        }
+      }
+    }
+    return { model: null, reason: `Configured filterModel "${configuredModel}" not available (no model or API key)` };
+  }
+
+  // 2. Auto-detect: try each candidate
+  for (const candidate of AUTO_DETECT_MODELS) {
+    const model = registry.find(candidate.provider, candidate.modelId);
+    if (!model) continue;
+    const auth = await tryResolve(registry, model);
+    if (auth) {
+      return { model, apiKey: auth.apiKey, headers: auth.headers };
+    }
+  }
+
+  return { model: null, reason: `No filter model available (tried ${AUTO_DETECT_MODELS.map(m => `${m.provider}/${m.modelId}`).join(", ")})` };
+}
+
+export async function filterContent(
+  content: string,
+  prompt: string,
+  registry: ModelRegistry,
+  configuredModel: string | undefined,
+  completeFn: CompleteFn
+): Promise<FilterResult> {
+  const resolved = await resolveFilterModel(registry, configuredModel);
+  if (!resolved.model) {
+    return { filtered: null, reason: resolved.reason };
+  }
+
+  const { model, apiKey, headers } = resolved as {
+    model: Model<Api>;
+    apiKey: string;
+    headers?: Record<string, string>;
+  };
+
+  try {
+    const context: Context = {
+      systemPrompt: FILTER_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: [{ type: "text", text: `<page_content>\n${content}\n</page_content>\n\nQuestion: ${prompt}` }],
+          timestamp: Date.now(),
+        },
+      ],
+    };
+    const response = await completeFn(model, context, { apiKey, headers });
+    const answer = response.content
+      .filter((c): c is { type: "text"; text: string } => c.type === "text")
+      .map((c) => c.text)
+      .join("\n");
+    if (answer.length < MIN_FILTER_RESPONSE_LENGTH) {
+      return { filtered: null, reason: `Filter response too short (${answer.length} chars)` };
+    }
+    return { filtered: answer, model: `${model.provider}/${model.id}` };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { filtered: null, reason: `Filter model error: ${msg}` };
+  }
+}
+```
+
+Note: The `ResolvedRequestAuth` type isn't exported with a public name everywhere across the legacy snapshot — we get type-safety from the **structural** `auth.ok && auth.apiKey` check rather than an explicit annotation. The runtime path is fully covered by tests; the type assertion `model as Model<Api>` matches the pre-existing pattern.
+
+**Step 4 — Run test, verify it passes**
+
+Run: `npx vitest run filter.test.ts`
+
+Expected: PASS — all 10 tests in `filter.test.ts` green.
+
+**Step 5 — Verify no regressions**
+
+Run: `npm test`
+
+Expected: All tests passing. Count grows from 258 → ~259 (one extra test for the headers case; the other replacements are 1:1).

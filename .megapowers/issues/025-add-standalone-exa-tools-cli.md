@@ -1,7 +1,7 @@
 ---
 id: 25
 type: feature
-status: in-progress
+status: done
 created: 2026-03-25T02:27:30.949Z
 ---
 # Add standalone exa-tools CLI

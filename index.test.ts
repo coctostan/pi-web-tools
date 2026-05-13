@@ -214,18 +214,28 @@ describe("session lifecycle", () => {
     vi.clearAllMocks();
   });
 
-  it("calls clearUrlCache on session_start", async () => {
+  const makeCtx = () => ({ sessionManager: { getEntries: () => [] } });
+
+  for (const reason of ["startup", "new", "resume", "fork"] as const) {
+    it(`session_start with reason="${reason}" clears URL cache, clone cache, and temp files`, async () => {
+      const handlers = await getSessionHandlers();
+      const handler = handlers.get("session_start");
+      expect(handler).toBeDefined();
+      await handler({ type: "session_start", reason }, makeCtx() as any);
+      expect(state.clearUrlCache).toHaveBeenCalled();
+      expect(ghState.clearCloneCache).toHaveBeenCalled();
+      expect(offloadState.cleanupTempFiles).toHaveBeenCalled();
+    });
+  }
+
+  it('session_start with reason="reload" preserves URL cache, clone cache, and temp files', async () => {
     const handlers = await getSessionHandlers();
     const handler = handlers.get("session_start");
     expect(handler).toBeDefined();
-    const ctx = {
-      sessionManager: {
-        getEntries: () => [],
-      },
-    };
-
-    await handler({}, ctx as any);
-    expect(state.clearUrlCache).toHaveBeenCalled();
+    await handler({ type: "session_start", reason: "reload" }, makeCtx() as any);
+    expect(state.clearUrlCache).not.toHaveBeenCalled();
+    expect(ghState.clearCloneCache).not.toHaveBeenCalled();
+    expect(offloadState.cleanupTempFiles).not.toHaveBeenCalled();
   });
 
   it("session_shutdown does NOT call any cache-clearing function from research-cache", async () => {
@@ -237,6 +247,13 @@ describe("session lifecycle", () => {
 
     expect(cacheState.getCached).not.toHaveBeenCalled();
     expect(cacheState.putCache).not.toHaveBeenCalled();
+  });
+
+  it("does NOT register removed lifecycle events session_switch/session_fork/session_tree", async () => {
+    const handlers = await getSessionHandlers();
+    expect(handlers.has("session_switch")).toBe(false);
+    expect(handlers.has("session_fork")).toBe(false);
+    expect(handlers.has("session_tree")).toBe(false);
   });
 });
 

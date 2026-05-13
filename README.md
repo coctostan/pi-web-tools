@@ -1,6 +1,6 @@
 # @coctostan/pi-exa-gh-web-tools
 
-Web search, code search, content extraction, and GitHub repo cloning for the [Pi coding agent](https://github.com/nicholasgasior/pi-coding-agent), powered by [Exa](https://exa.ai).
+Web search, code search, content extraction, and GitHub repo cloning for the [Pi coding agent](https://github.com/earendil-works/pi-mono), powered by [Exa](https://exa.ai).
 
 This package gives Pi four tools:
 
@@ -25,17 +25,28 @@ If you're new to Pi, the simplest mental model is:
 3. **Ask a focused question** when possible
 4. **Read the saved file** only if you need the raw content
 
+## Requirements
+
+- Pi coding agent ≥ `0.74.0` (npm scope `@earendil-works/*`)
+- Node.js ≥ 22
+
+`pi-web-tools` declares `peerDependencies` on `@earendil-works/pi-coding-agent ^0.74.0` and `@earendil-works/pi-tui ^0.74.0`. The legacy `@mariozechner/*` scope is no longer supported — if you are on pi `< 0.74`, stay on `pi-web-tools@3.x`.
+
 ## Quick start
 
 ### 1) Install the extension in Pi
 
 From npm:
 
+> Requires pi 0.74 or newer.
+
 ```bash
 pi install npm:@coctostan/pi-exa-gh-web-tools
 ```
 
 Or directly from GitHub:
+
+> Requires pi 0.74 or newer.
 
 ```bash
 pi install github:coctostan/pi-web-tools
@@ -419,6 +430,19 @@ Load the extension in Pi for manual testing:
 pi -e ./index.ts
 ```
 
+### Refresh the vendored pi snapshot
+
+The repo vendors a minimal `node_modules/` snapshot under `.pi/npm/` so that
+`pi -e ./index.ts` runs against a pinned coding-agent build. To refresh it
+after a pi release:
+
+    rm -rf .pi/npm/node_modules .pi/npm/package-lock.json
+    (cd .pi/npm && npm install)
+    npx tsx scripts/smoke-load-extension.mjs
+
+Commit the resulting `.pi/npm/package.json`, `.pi/npm/package-lock.json`, and
+`.pi/npm/node_modules/` tree.
+
 Tests use mocked network calls, so they do not require an Exa API key.
 
 ## Troubleshooting
@@ -520,6 +544,12 @@ constants.ts       Shared constants (timeouts, TTLs)
 
 ## Changelog
 
+### 4.0.0
+
+- **Breaking:** requires pi `0.74.0+` and the `@earendil-works/*` npm scope. Users on older pi must stay on `pi-web-tools@3.x`.
+- migrated to `ModelRegistry.getApiKeyAndHeaders` and threads custom auth headers (Anthropic OAuth, Cloudflare AI Gateway, Xiaomi) through to the filter model
+- migrated session lifecycle to the consolidated `session_start{reason}` event; `reload` no longer wipes the URL cache or temp files
+- refreshed vendored `.pi/npm` extension snapshot to `@earendil-works/pi-coding-agent@^0.74.0`
 ### 3.0.0
 
 - `fetch_content` gained persistent research cache — repeated prompt+URL lookups return instant cached answers

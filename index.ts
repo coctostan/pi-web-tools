@@ -1,7 +1,7 @@
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
-import { Type } from "@sinclair/typebox";
-import { complete } from "@mariozechner/pi-ai";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
+import { Type } from "typebox";
+import { complete } from "@earendil-works/pi-ai";
 import pLimit from "p-limit";
 import { searchExa, findSimilarExa, formatSearchResults } from "./exa-search.js";
 import { enhanceQuery, postProcessResults, type EnhancedQuery } from "./smart-search.js";
@@ -132,19 +132,11 @@ const CodeSearchParams = Type.Object({
 
 export default function (pi: ExtensionAPI) {
   // Session event handlers
-  pi.on("session_start", async (_event, ctx) => {
-    handleSessionStart(ctx);
-  });
-
-  pi.on("session_switch", async (_event, ctx) => {
-    handleSessionStart(ctx);
-  });
-
-  pi.on("session_fork", async (_event, ctx) => {
-    handleSessionStart(ctx);
-  });
-
-  pi.on("session_tree", async (_event, ctx) => {
+  pi.on("session_start", async (event, ctx) => {
+    if ((event as { reason?: string }).reason === "reload") {
+      restoreFromSession(ctx);
+      return;
+    }
     handleSessionStart(ctx);
   });
 
