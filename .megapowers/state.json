@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "activeIssue": "025-add-standalone-exa-tools-cli",
-  "workflow": "feature",
-  "phase": "brainstorm",
+  "activeIssue": "039-adapt-pi-web-tools-to-pi-0-74-x-rescope-",
+  "workflow": "bugfix",
+  "phase": "reproduce",
   "phaseHistory": [],
   "planMode": null,
   "planIteration": 0,
