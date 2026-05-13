@@ -434,6 +434,15 @@ describe("web_search detail passthrough", () => {
     expect(detailSchema.anyOf.map((v: any) => v.const)).toEqual(["summary", "highlights"]);
   });
 
+  it("web_search schema documents realtime freshness as last 1 hour", async () => {
+    const { webSearchTool } = await getWebSearchTool();
+
+    const freshnessSchema = webSearchTool.parameters.properties.freshness;
+    expect(freshnessSchema).toBeDefined();
+    expect(freshnessSchema.description).toContain('"realtime" (last 1 hour)');
+    expect(freshnessSchema.description).not.toContain('"realtime" (0h)');
+  });
+
   it("web_search schema keeps numResults optional while constraining provided values", async () => {
     const { webSearchTool } = await getWebSearchTool();
     const numResultsSchema = webSearchTool.parameters.properties.numResults;
@@ -1106,6 +1115,20 @@ describe("web_search similarUrl routing", () => {
 
     const text = getText(result);
     expect(text).toMatch(/freshness.*not supported/i);
+  });
+
+  it("does not warn when freshness any is used with similarUrl", async () => {
+    exaState.findSimilarExa.mockResolvedValueOnce([]);
+    exaState.formatSearchResults.mockReturnValue("No results found.");
+
+    const { webSearchTool } = await getWebSearchTool();
+    const result = await webSearchTool.execute("call-freshness-any", webSearchTool.prepareArguments({
+      similarUrl: "https://example.com",
+      freshness: "any",
+    }));
+
+    const text = getText(result);
+    expect(text).not.toMatch(/freshness.*not supported/i);
   });
 
   it("includes a warning note when category is used with similarUrl", async () => {

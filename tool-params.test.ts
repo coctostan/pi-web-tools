@@ -90,36 +90,14 @@ describe("tool-params", () => {
     expect(normalizeWebSearchInput({ query: "x", detail: "" }).detail).toBeUndefined();
   });
 
-  it("normalizeWebSearchInput maps freshness 'realtime' to maxAgeHours 1 (last 1 hour)", () => {
-    const result = normalizeWebSearchInput({ query: "x", freshness: "realtime" });
-    expect(result.maxAgeHours).toBe(1);
-  });
-
-  it("BUG #018: freshness 'realtime' must NOT map to maxAgeHours 0 (Exa ignores 0 as no-filter)", () => {
-    const result = normalizeWebSearchInput({ query: "x", freshness: "realtime" });
-    // maxAgeHours: 0 is treated by Exa identically to omitting the field (no filtering).
-    // 'realtime' should either be removed from the enum or map to a small positive value.
-    expect(result.maxAgeHours).not.toBe(0);
-  });
-
-  it("normalizeWebSearchInput maps freshness 'day' to maxAgeHours 24", () => {
-    const result = normalizeWebSearchInput({ query: "x", freshness: "day" });
-    expect(result.maxAgeHours).toBe(24);
-  });
-
-  it("normalizeWebSearchInput maps freshness 'week' to maxAgeHours 168", () => {
-    const result = normalizeWebSearchInput({ query: "x", freshness: "week" });
-    expect(result.maxAgeHours).toBe(168);
-  });
-
-  it("normalizeWebSearchInput maps freshness 'any' to no maxAgeHours", () => {
-    const result = normalizeWebSearchInput({ query: "x", freshness: "any" });
-    expect(result.maxAgeHours).toBeUndefined();
-  });
-
-  it("normalizeWebSearchInput omits maxAgeHours when freshness not provided", () => {
-    const result = normalizeWebSearchInput({ query: "x" });
-    expect(result.maxAgeHours).toBeUndefined();
+  it("normalizeWebSearchInput preserves canonical freshness without maxAgeHours", () => {
+    expect(normalizeWebSearchInput({ query: "x", freshness: "realtime" }).freshness).toBe("realtime");
+    expect(normalizeWebSearchInput({ query: "x", freshness: "day" }).freshness).toBe("day");
+    expect(normalizeWebSearchInput({ query: "x", freshness: "week" }).freshness).toBe("week");
+    expect(normalizeWebSearchInput({ query: "x", freshness: "any" }).freshness).toBe("any");
+    expect(normalizeWebSearchInput({ query: "x", freshness: "invalid" }).freshness).toBeUndefined();
+    expect(normalizeWebSearchInput({ query: "x" }).freshness).toBeUndefined();
+    expect(normalizeWebSearchInput({ query: "x", freshness: "day" })).not.toHaveProperty("maxAgeHours");
   });
 
   it("normalizeWebSearchInput accepts similarUrl without query", () => {
@@ -220,8 +198,8 @@ describe("tool-params", () => {
     expect(normalizeGetSearchContentInput({ responseId: "r1" })).toEqual({ responseId: "r1", query: undefined, queryIndex: undefined, url: undefined, urlIndex: undefined, maxChars: undefined });
   });
 
-  it("normalizeWebSearchInput maps freshness and preserves documented validation errors (AC-PREPARE-6)", () => {
-    expect(normalizeWebSearchInput({ query: "q", freshness: "day" }).maxAgeHours).toBe(24);
+  it("normalizeWebSearchInput preserves canonical freshness and documented validation errors (AC-PREPARE-6)", () => {
+    expect(normalizeWebSearchInput({ query: "q", freshness: "day" }).freshness).toBe("day");
     expect(() => normalizeWebSearchInput({ query: "q", similarUrl: "https://x" })).toThrow("'similarUrl' and 'query'/'queries' are mutually exclusive.");
     expect(() => normalizeWebSearchInput({})).toThrow("Either 'query' or 'queries' must be provided.");
     expect(() => normalizeFetchContentInput({})).toThrow("Either 'url' or 'urls' must be provided.");

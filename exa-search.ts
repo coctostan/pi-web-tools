@@ -7,6 +7,22 @@ export interface ExaSearchResult {
   publishedDate?: string;
 }
 
+export type Freshness = "realtime" | "day" | "week" | "any";
+
+export function exaMaxAgeHoursForFreshness(freshness: Freshness | undefined): number | undefined {
+  switch (freshness) {
+    case "realtime":
+      return 1;
+    case "day":
+      return 24;
+    case "week":
+      return 168;
+    case "any":
+    case undefined:
+      return undefined;
+  }
+}
+
 export interface ExaSearchOptions {
   apiKey: string | null;
   numResults?: number;
@@ -16,7 +32,7 @@ export interface ExaSearchOptions {
   excludeDomains?: string[];
   signal?: AbortSignal;
   detail?: "summary" | "highlights";
-  maxAgeHours?: number;
+  freshness?: Freshness;
 }
 
 const EXA_API_URL = "https://api.exa.ai/search";
@@ -106,8 +122,9 @@ export async function searchExa(query: string, options: ExaSearchOptions): Promi
   if (options.excludeDomains && options.excludeDomains.length > 0) {
     requestBody.excludeDomains = options.excludeDomains;
   }
-  if (options.maxAgeHours !== undefined) {
-    requestBody.maxAgeHours = options.maxAgeHours;
+  const maxAgeHours = exaMaxAgeHoursForFreshness(options.freshness);
+  if (maxAgeHours !== undefined) {
+    requestBody.maxAgeHours = maxAgeHours;
   }
 
   const body = JSON.stringify(requestBody);

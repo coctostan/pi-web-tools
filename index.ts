@@ -123,7 +123,7 @@ function handleSessionShutdown(_event?: SessionShutdownEvent, _ctx?: ExtensionCo
 // Tool parameter schemas
 // ---------------------------------------------------------------------------
 
-const WebSearchParams = Type.Object({ query: Type.Optional(Type.String({ description: "Single search query" })), queries: Type.Optional(Type.Array(Type.String(), { description: "Multiple queries (batch)" })), numResults: Type.Optional(Type.Integer({ minimum: 1, maximum: 20, description: "Results per query (default: 5, max: 20)" })), type: Type.Optional(Type.Union([Type.Literal("auto"), Type.Literal("instant"), Type.Literal("deep")], { description: 'Search type: "auto" (default, highest quality), "instant" (sub-150ms), "deep" (comprehensive research)' })), category: Type.Optional(Type.Union([Type.Literal("company"), Type.Literal("research paper"), Type.Literal("news"), Type.Literal("tweet"), Type.Literal("people"), Type.Literal("personal site"), Type.Literal("financial report"), Type.Literal("pdf")], { description: "Filter by content category" })), includeDomains: Type.Optional(Type.Array(Type.String(), { description: 'Only include these domains (e.g. ["github.com"])' })), excludeDomains: Type.Optional(Type.Array(Type.String(), { description: 'Exclude these domains (e.g. ["pinterest.com"])' })), detail: Type.Optional(Type.Union([Type.Literal("summary"), Type.Literal("highlights")], { description: 'Detail level: "summary" (default) or "highlights"' })), freshness: Type.Optional(Type.Union([Type.Literal("realtime"), Type.Literal("day"), Type.Literal("week"), Type.Literal("any")], { description: 'Content freshness: "realtime" (0h), "day" (24h), "week" (168h), "any" (default, no filter)' })), similarUrl: Type.Optional(Type.String({ description: "Find pages similar to this URL (alternative to query)" })) });
+const WebSearchParams = Type.Object({ query: Type.Optional(Type.String({ description: "Single search query" })), queries: Type.Optional(Type.Array(Type.String(), { description: "Multiple queries (batch)" })), numResults: Type.Optional(Type.Integer({ minimum: 1, maximum: 20, description: "Results per query (default: 5, max: 20)" })), type: Type.Optional(Type.Union([Type.Literal("auto"), Type.Literal("instant"), Type.Literal("deep")], { description: 'Search type: "auto" (default, highest quality), "instant" (sub-150ms), "deep" (comprehensive research)' })), category: Type.Optional(Type.Union([Type.Literal("company"), Type.Literal("research paper"), Type.Literal("news"), Type.Literal("tweet"), Type.Literal("people"), Type.Literal("personal site"), Type.Literal("financial report"), Type.Literal("pdf")], { description: "Filter by content category" })), includeDomains: Type.Optional(Type.Array(Type.String(), { description: 'Only include these domains (e.g. ["github.com"])' })), excludeDomains: Type.Optional(Type.Array(Type.String(), { description: 'Exclude these domains (e.g. ["pinterest.com"])' })), detail: Type.Optional(Type.Union([Type.Literal("summary"), Type.Literal("highlights")], { description: 'Detail level: "summary" (default) or "highlights"' })), freshness: Type.Optional(Type.Union([Type.Literal("realtime"), Type.Literal("day"), Type.Literal("week"), Type.Literal("any")], { description: 'Content freshness: "realtime" (last 1 hour), "day" (24h), "week" (168h), "any" (default, no filter)' })), similarUrl: Type.Optional(Type.String({ description: "Find pages similar to this URL (alternative to query)" })) });
 const FetchContentParams = Type.Object({ url: Type.Optional(Type.String({ description: "Single URL to fetch" })), urls: Type.Optional(Type.Array(Type.String(), { description: "Multiple URLs (parallel)" })), forceClone: Type.Optional(Type.Boolean({ description: "Force cloning large GitHub repos" })), prompt: Type.Optional(Type.String({ description: "Question to answer from the fetched content. When provided, content is filtered through a cheap model and only the focused answer is returned (~200-1000 chars instead of full page)." })), noCache: Type.Optional(Type.Boolean({ description: "Skip cache and fetch fresh content. The fresh result still updates the cache." })) });
 const GetSearchContentParams = Type.Object({ responseId: Type.String({ description: "Response ID from web_search or fetch_content" }), query: Type.Optional(Type.String({ description: "Get content for this query" })), queryIndex: Type.Optional(Type.Number({ description: "Get content for query at index" })), url: Type.Optional(Type.String({ description: "Get content for this URL" })), urlIndex: Type.Optional(Type.Number({ description: "Get content for URL at index" })), maxChars: Type.Optional(Type.Number({ description: "Maximum characters to return (default: 30000, max: 100000)" })) });
 const CodeSearchParams = Type.Object({ query: Type.String({ description: "Describe what code you need" }), tokensNum: Type.Optional(Type.Number({ description: "Response size in tokens (default: auto, range: 50-100000)" })) });
@@ -188,7 +188,7 @@ export default function (pi: ExtensionAPI) {
     prepareArguments: (raw) => normalizeWebSearchInput(raw as any) as any,
 
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-      const { queries: queryList, numResults, type, category, includeDomains, excludeDomains, detail, maxAgeHours, similarUrl } = params as any;
+      const { queries: queryList, numResults, type, category, includeDomains, excludeDomains, detail, freshness, similarUrl } = params as any;
 
       const config = getConfig();
         const results: QueryResultData[] = [];
@@ -197,7 +197,7 @@ export default function (pi: ExtensionAPI) {
         if (similarUrl) {
           // findSimilar mode — single request, no pLimit loop
           const unsupportedFilters: string[] = [];
-          if (maxAgeHours !== undefined) unsupportedFilters.push("freshness");
+          if (freshness !== undefined && freshness !== "any") unsupportedFilters.push("freshness");
           if (category !== undefined) unsupportedFilters.push("category");
           const warningNote =
             unsupportedFilters.length > 0
@@ -269,7 +269,7 @@ export default function (pi: ExtensionAPI) {
                   excludeDomains,
                   signal,
                   detail,
-                  maxAgeHours,
+                  freshness,
                 });
 
                 let processedResults = searchResults;
