@@ -160,9 +160,9 @@ describe("web_search smart-search integration", () => {
 
     expect(webSearchTool.parameters.properties.smartSearch).toBeUndefined();
 
-    const keywordResult = await webSearchTool.execute("call-1", {
+    const keywordResult = await webSearchTool.execute("call-1", webSearchTool.prepareArguments({
       query: "TypeError: Cannot read properties of undefined",
-    });
+    }));
     expect(exaState.searchExa).toHaveBeenNthCalledWith(
       1,
       "TypeError: Cannot read properties of undefined",
@@ -171,9 +171,9 @@ describe("web_search smart-search integration", () => {
     expect(getText(keywordResult)).toContain("Keyword search used.");
     expect(getText(keywordResult)).not.toContain("Searched as:");
 
-    const expandedResult = await webSearchTool.execute("call-2", {
+    const expandedResult = await webSearchTool.execute("call-2", webSearchTool.prepareArguments({
       query: "vite config",
-    });
+    }));
     expect(exaState.searchExa).toHaveBeenNthCalledWith(
       2,
       "vite config docs example",
@@ -181,9 +181,9 @@ describe("web_search smart-search integration", () => {
     );
     expect(getText(expandedResult)).toContain("Searched as: vite config docs example");
 
-    const failOpenResult = await webSearchTool.execute("call-3", {
+    const failOpenResult = await webSearchTool.execute("call-3", webSearchTool.prepareArguments({
       query: "react router loader",
-    });
+    }));
     expect(exaState.searchExa).toHaveBeenNthCalledWith(
       3,
       "react router loader",
@@ -195,9 +195,9 @@ describe("web_search smart-search integration", () => {
       results: [{ title: "Result", url: "https://example.com", snippet: "summary" }],
       duplicatesRemoved: 1,
     });
-    const unchangedResult = await webSearchTool.execute("call-4", {
+    const unchangedResult = await webSearchTool.execute("call-4", webSearchTool.prepareArguments({
       query: "react query cache invalidation",
-    });
+    }));
     expect(exaState.searchExa).toHaveBeenNthCalledWith(
       4,
       "react query cache invalidation",

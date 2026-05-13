@@ -1,0 +1,6 @@
+- Pi's per-call `signal` is enough for these tools; keeping a separate pending-fetch registry created extra failure modes and obscured cancellation behavior.
+- Session lifecycle reasons matter operationally: `reload`, `new`, `resume`, and `fork` need different cache/restore behavior even when they share the same event name.
+- Disk persistence for compact-safe state should validate and TTL-check entries before rehydrating, otherwise a snapshot path can bypass the safeguards used by session-log restore.
+- Snapshot writes should avoid overwriting valid state in place; temp-file plus rename is a small change that protects against interrupted writes.
+- Tests that mock package-boundary exports can hide real runtime import failures; prefer exercising actual available exports or local parsing when possible.
+- `prepareArguments` is a good home for LLM-input coercion, but public schema compatibility still needs explicit tests for defaults and optional fields.

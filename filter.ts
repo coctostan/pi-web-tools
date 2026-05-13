@@ -89,7 +89,8 @@ export async function filterContent(
   prompt: string,
   registry: ModelRegistry,
   configuredModel: string | undefined,
-  completeFn: CompleteFn
+  completeFn: CompleteFn,
+  signal?: AbortSignal
 ): Promise<FilterResult> {
   const resolved = await resolveFilterModel(registry, configuredModel);
   if (!resolved.model) {
@@ -113,7 +114,7 @@ export async function filterContent(
         },
       ],
     };
-    const response = await completeFn(model, context, { apiKey, headers });
+    const response = await completeFn(model, context, { apiKey, headers, signal });
     const answer = response.content
       .filter((c): c is { type: "text"; text: string } => c.type === "text")
       .map((c) => c.text)
