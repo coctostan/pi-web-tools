@@ -1,3 +1,5 @@
+import { readFileSync, existsSync } from "node:fs";
+
 export interface ExtractedContent {
   url: string;
   title: string;
@@ -40,6 +42,25 @@ interface ExtensionContext {
 
 const MAX_ENTRIES = 50;
 const ONE_HOUR_MS = 60 * 60 * 1000;
+
+function loadSessionEntriesFromFile(filePath: string): Array<{ type: string; customType?: string; data?: unknown }> {
+  if (!existsSync(filePath)) return [];
+  const content = readFileSync(filePath, "utf-8");
+  const entries: Array<{ type: string; customType?: string; data?: unknown; id?: unknown }> = [];
+
+  for (const line of content.trim().split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      entries.push(JSON.parse(line));
+    } catch {
+      // Skip malformed lines, matching Pi's session reader behavior.
+    }
+  }
+
+  const header = entries[0];
+  if (entries.length > 0 && (header?.type !== "session" || typeof header.id !== "string")) return [];
+  return entries;
+}
 
 const store = new Map<string, StoredResultData>();
 
@@ -102,6 +123,34 @@ export function restoreFromSession(ctx: ExtensionContext): void {
   }
 
   // Enforce max capacity after restore
+  while (store.size > MAX_ENTRIES) {
+    const oldest = store.keys().next().value;
+    if (oldest === undefined) break;
+    store.delete(oldest);
+  }
+}
+
+
+export function restoreFromSessionFile(sessionFilePath: string): void {
+  const now = Date.now();
+  let entries: Array<{ type: string; customType?: string; data?: unknown }> = [];
+  try {
+    entries = loadSessionEntriesFromFile(sessionFilePath);
+  } catch {
+    return; // missing file or parse error: leave store as-is
+  }
+
+  for (const entry of entries) {
+    if (entry.type !== "custom" || entry.customType !== "web-tools-results") continue;
+    const data = entry.data as StoredResultData | undefined;
+    if (!data || !data.id || !data.type) continue;
+    if (data.type === "search" && !Array.isArray(data.queries)) continue;
+    if (data.type === "fetch" && !Array.isArray(data.urls)) continue;
+    if (data.type === "context" && (!data.context || typeof data.context.query !== "string")) continue;
+    if (data.timestamp && now - data.timestamp > ONE_HOUR_MS) continue;
+    store.set(data.id, data);
+  }
+
   while (store.size > MAX_ENTRIES) {
     const oldest = store.keys().next().value;
     if (oldest === undefined) break;

@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, SessionShutdownEvent, SessionStartEvent } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { complete } from "@earendil-works/pi-ai";
@@ -26,14 +26,15 @@ import {
   getAllResults,
   clearResults,
   restoreFromSession,
+  restoreFromSessionFile,
   type StoredResultData,
   type QueryResultData,
   type ExtractedContent,
   type ContextResultData,
 } from "./storage.js";
+import { writeStoreSnapshot, readStoreSnapshot, pruneStaleStoreFiles, resultsFilePath, DEFAULT_RESULTS_DIR } from "./session-results-store.js";
 
 const MAX_INLINE_CONTENT = 30000;
-const pendingFetches = new Map<string, AbortController>();
 
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -43,23 +44,75 @@ const DEFAULT_CACHE_FILE = join(homedir(), ".pi", "cache", "web-tools", "researc
 // Session event handlers
 // ---------------------------------------------------------------------------
 
-function abortAllPending(): void {
-  for (const controller of pendingFetches.values()) {
-    controller.abort();
+function snapshotStore(ctx: ExtensionContext): void {
+  const sessionId = ctx?.sessionManager?.getSessionId?.();
+  if (!sessionId) return;
+  const dir = (ctx as any).webToolsResultsDir ?? DEFAULT_RESULTS_DIR;
+  writeStoreSnapshot(resultsFilePath(sessionId, dir), getAllResults());
+}
+
+function isRestorableStoredResult(entry: StoredResultData): boolean {
+  return !!(entry?.id && entry.type && (!entry.timestamp || Date.now() - entry.timestamp <= 60 * 60 * 1000) &&
+    (entry.type !== "search" || Array.isArray(entry.queries)) && (entry.type !== "fetch" || Array.isArray(entry.urls)) &&
+    (entry.type !== "context" || (entry.context && typeof entry.context.query === "string")));
+}
+
+function rehydrateFromDisk(ctx: ExtensionContext): boolean {
+  const sessionId = ctx?.sessionManager?.getSessionId?.();
+  if (!sessionId) return false;
+  const dir = (ctx as any).webToolsResultsDir ?? DEFAULT_RESULTS_DIR;
+  const entries = readStoreSnapshot(resultsFilePath(sessionId, dir));
+  if (entries.length === 0) return false;
+  clearResults();
+  let restored = 0;
+  for (const entry of entries) if (isRestorableStoredResult(entry)) { storeResult(entry.id, entry); restored++; }
+  return restored > 0;
+}
+
+function handleSessionStart(event: SessionStartEvent, ctx: ExtensionContext): void {
+  const initialDir = (ctx as any).webToolsResultsDir ?? DEFAULT_RESULTS_DIR;
+  pruneStaleStoreFiles(initialDir, 24 * 60 * 60 * 1000);
+  switch (event.reason) {
+    case "startup":
+      clearCloneCache();
+      clearUrlCache();
+      cleanupTempFiles();
+      if (!rehydrateFromDisk(ctx)) restoreFromSession(ctx);
+      return;
+    case "reload":
+      clearCloneCache();
+      if (!rehydrateFromDisk(ctx)) restoreFromSession(ctx);
+      return;
+    case "new":
+      clearCloneCache();
+      clearUrlCache();
+      cleanupTempFiles();
+      clearResults();
+      return;
+    case "resume":
+      clearCloneCache();
+      clearUrlCache();
+      cleanupTempFiles();
+      if (!rehydrateFromDisk(ctx)) restoreFromSession(ctx);
+      return;
+    case "fork": {
+      clearCloneCache();
+      clearUrlCache();
+      cleanupTempFiles();
+      const restoredFromDisk = rehydrateFromDisk(ctx);
+      if (!restoredFromDisk) {
+        if (event.previousSessionFile) {
+          restoreFromSessionFile(event.previousSessionFile);
+        } else {
+          restoreFromSession(ctx);
+        }
+      }
+      return;
   }
-  pendingFetches.clear();
+}
 }
 
-function handleSessionStart(ctx: ExtensionContext): void {
-  abortAllPending();
-  clearCloneCache();
-  clearUrlCache();
-  cleanupTempFiles();
-  restoreFromSession(ctx);
-}
-
-function handleSessionShutdown(): void {
-  abortAllPending();
+function handleSessionShutdown(_event?: SessionShutdownEvent, _ctx?: ExtensionContext): void {
   clearCloneCache();
   clearResults();
   resetConfigCache();
@@ -70,61 +123,10 @@ function handleSessionShutdown(): void {
 // Tool parameter schemas
 // ---------------------------------------------------------------------------
 
-const WebSearchParams = Type.Object({
-  query: Type.Optional(Type.String({ description: "Single search query" })),
-  queries: Type.Optional(Type.Array(Type.String(), { description: "Multiple queries (batch)" })),
-  numResults: Type.Optional(Type.Number({ description: "Results per query (default: 5, max: 20)" })),
-  type: Type.Optional(Type.Union([
-    Type.Literal("auto"),
-    Type.Literal("instant"),
-    Type.Literal("deep"),
-  ], { description: 'Search type: "auto" (default, highest quality), "instant" (sub-150ms), "deep" (comprehensive research)' })),
-  category: Type.Optional(Type.Union([
-    Type.Literal("company"),
-    Type.Literal("research paper"),
-    Type.Literal("news"),
-    Type.Literal("tweet"),
-    Type.Literal("people"),
-    Type.Literal("personal site"),
-    Type.Literal("financial report"),
-    Type.Literal("pdf"),
-  ], { description: "Filter by content category" })),
-  includeDomains: Type.Optional(Type.Array(Type.String(), { description: 'Only include these domains (e.g. ["github.com"])' })),
-  excludeDomains: Type.Optional(Type.Array(Type.String(), { description: 'Exclude these domains (e.g. ["pinterest.com"])' })),
-  detail: Type.Optional(Type.Union([
-    Type.Literal("summary"),
-    Type.Literal("highlights"),
-  ], { description: 'Detail level: "summary" (default) or "highlights"' })),
-  freshness: Type.Optional(Type.Union([
-    Type.Literal("realtime"),
-    Type.Literal("day"),
-    Type.Literal("week"),
-    Type.Literal("any"),
-  ], { description: 'Content freshness: "realtime" (0h), "day" (24h), "week" (168h), "any" (default, no filter)' })),
-  similarUrl: Type.Optional(Type.String({ description: "Find pages similar to this URL (alternative to query)" })),
-});
-
-const FetchContentParams = Type.Object({
-  url: Type.Optional(Type.String({ description: "Single URL to fetch" })),
-  urls: Type.Optional(Type.Array(Type.String(), { description: "Multiple URLs (parallel)" })),
-  forceClone: Type.Optional(Type.Boolean({ description: "Force cloning large GitHub repos" })),
-  prompt: Type.Optional(Type.String({ description: "Question to answer from the fetched content. When provided, content is filtered through a cheap model and only the focused answer is returned (~200-1000 chars instead of full page)." })),
-  noCache: Type.Optional(Type.Boolean({ description: "Skip cache and fetch fresh content. The fresh result still updates the cache." })),
-});
-
-const GetSearchContentParams = Type.Object({
-  responseId: Type.String({ description: "Response ID from web_search or fetch_content" }),
-  query: Type.Optional(Type.String({ description: "Get content for this query" })),
-  queryIndex: Type.Optional(Type.Number({ description: "Get content for query at index" })),
-  url: Type.Optional(Type.String({ description: "Get content for this URL" })),
-  urlIndex: Type.Optional(Type.Number({ description: "Get content for URL at index" })),
-  maxChars: Type.Optional(Type.Number({ description: "Maximum characters to return (default: 30000, max: 100000)" })),
-});
-
-const CodeSearchParams = Type.Object({
-  query: Type.String({ description: "Describe what code you need" }),
-  tokensNum: Type.Optional(Type.Number({ description: "Response size in tokens (default: auto, range: 50-100000)" })),
-});
+const WebSearchParams = Type.Object({ query: Type.Optional(Type.String({ description: "Single search query" })), queries: Type.Optional(Type.Array(Type.String(), { description: "Multiple queries (batch)" })), numResults: Type.Optional(Type.Integer({ minimum: 1, maximum: 20, description: "Results per query (default: 5, max: 20)" })), type: Type.Optional(Type.Union([Type.Literal("auto"), Type.Literal("instant"), Type.Literal("deep")], { description: 'Search type: "auto" (default, highest quality), "instant" (sub-150ms), "deep" (comprehensive research)' })), category: Type.Optional(Type.Union([Type.Literal("company"), Type.Literal("research paper"), Type.Literal("news"), Type.Literal("tweet"), Type.Literal("people"), Type.Literal("personal site"), Type.Literal("financial report"), Type.Literal("pdf")], { description: "Filter by content category" })), includeDomains: Type.Optional(Type.Array(Type.String(), { description: 'Only include these domains (e.g. ["github.com"])' })), excludeDomains: Type.Optional(Type.Array(Type.String(), { description: 'Exclude these domains (e.g. ["pinterest.com"])' })), detail: Type.Optional(Type.Union([Type.Literal("summary"), Type.Literal("highlights")], { description: 'Detail level: "summary" (default) or "highlights"' })), freshness: Type.Optional(Type.Union([Type.Literal("realtime"), Type.Literal("day"), Type.Literal("week"), Type.Literal("any")], { description: 'Content freshness: "realtime" (0h), "day" (24h), "week" (168h), "any" (default, no filter)' })), similarUrl: Type.Optional(Type.String({ description: "Find pages similar to this URL (alternative to query)" })) });
+const FetchContentParams = Type.Object({ url: Type.Optional(Type.String({ description: "Single URL to fetch" })), urls: Type.Optional(Type.Array(Type.String(), { description: "Multiple URLs (parallel)" })), forceClone: Type.Optional(Type.Boolean({ description: "Force cloning large GitHub repos" })), prompt: Type.Optional(Type.String({ description: "Question to answer from the fetched content. When provided, content is filtered through a cheap model and only the focused answer is returned (~200-1000 chars instead of full page)." })), noCache: Type.Optional(Type.Boolean({ description: "Skip cache and fetch fresh content. The fresh result still updates the cache." })) });
+const GetSearchContentParams = Type.Object({ responseId: Type.String({ description: "Response ID from web_search or fetch_content" }), query: Type.Optional(Type.String({ description: "Get content for this query" })), queryIndex: Type.Optional(Type.Number({ description: "Get content for query at index" })), url: Type.Optional(Type.String({ description: "Get content for this URL" })), urlIndex: Type.Optional(Type.Number({ description: "Get content for URL at index" })), maxChars: Type.Optional(Type.Number({ description: "Maximum characters to return (default: 30000, max: 100000)" })) });
+const CodeSearchParams = Type.Object({ query: Type.String({ description: "Describe what code you need" }), tokensNum: Type.Optional(Type.Number({ description: "Response size in tokens (default: auto, range: 50-100000)" })) });
 
 // ---------------------------------------------------------------------------
 // Extension entry point
@@ -133,15 +135,20 @@ const CodeSearchParams = Type.Object({
 export default function (pi: ExtensionAPI) {
   // Session event handlers
   pi.on("session_start", async (event, ctx) => {
-    if ((event as { reason?: string }).reason === "reload") {
-      restoreFromSession(ctx);
-      return;
-    }
-    handleSessionStart(ctx);
+    handleSessionStart(event, ctx);
   });
 
-  pi.on("session_shutdown", async () => {
-    handleSessionShutdown();
+  pi.on("session_shutdown", async (event, ctx) => {
+    handleSessionShutdown(event, ctx);
+  });
+
+
+  pi.on("session_before_compact", async (_event, ctx) => {
+    snapshotStore(ctx);
+  });
+
+  pi.on("session_compact", async (_event, ctx) => {
+    rehydrateFromDisk(ctx);
   });
 
   // Tool result interception — offload large content to temp files
@@ -178,20 +185,12 @@ export default function (pi: ExtensionAPI) {
     description:
       "Search the web for pages matching a query. Returns summaries by default (~1 line per result). Use `detail: \"highlights\"` for longer excerpts. Use `fetch_content` to read a page in full. Supports batch searching with multiple queries.",
     parameters: WebSearchParams,
+    prepareArguments: (raw) => normalizeWebSearchInput(raw as any) as any,
 
-    async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
-      const { queries: queryList, numResults, type, category, includeDomains, excludeDomains, detail, maxAgeHours, similarUrl } = normalizeWebSearchInput(params);
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+      const { queries: queryList, numResults, type, category, includeDomains, excludeDomains, detail, maxAgeHours, similarUrl } = params as any;
 
       const config = getConfig();
-      const abortController = new AbortController();
-      const fetchId = generateId();
-      pendingFetches.set(fetchId, abortController);
-
-      const combinedSignal = signal
-        ? AbortSignal.any([signal, abortController.signal])
-        : abortController.signal;
-
-      try {
         const results: QueryResultData[] = [];
         let successfulQueries = 0;
         let totalResults = 0;
@@ -207,8 +206,8 @@ export default function (pi: ExtensionAPI) {
           try {
             const searchResults = await findSimilarExa(similarUrl, {
               apiKey: config.exaApiKey,
-              numResults: numResults !== undefined ? Math.max(1, Math.min(numResults, 20)) : 5,
-              signal: combinedSignal,
+              numResults,
+              signal,
               detail,
               includeDomains,
               excludeDomains,
@@ -238,7 +237,7 @@ export default function (pi: ExtensionAPI) {
         } else {
           // Normal search mode — batch queries via pLimit
           const limit = pLimit(3);
-          const resultPromises = queryList.map((q) =>
+          const resultPromises = queryList.map((q: string) =>
             limit(async (): Promise<QueryResultData> => {
               let enhanced: EnhancedQuery = {
                 originalQuery: q,
@@ -263,12 +262,12 @@ export default function (pi: ExtensionAPI) {
               try {
                 const searchResults = await searchExa(enhanced.finalQuery, {
                   apiKey: config.exaApiKey,
-                  numResults: numResults !== undefined ? Math.max(1, Math.min(numResults, 20)) : 5,
+                  numResults,
                   type: enhanced.typeOverride ?? type,
                   category,
                   includeDomains,
                   excludeDomains,
-                  signal: combinedSignal,
+                  signal,
                   detail,
                   maxAgeHours,
                 });
@@ -334,6 +333,7 @@ export default function (pi: ExtensionAPI) {
         };
         storeResult(searchId, storedData);
         pi.appendEntry("web-tools-results", storedData);
+        snapshotStore(ctx);
 
         // Format output text
         const textParts: string[] = [];
@@ -368,9 +368,6 @@ export default function (pi: ExtensionAPI) {
             },
           },
         };
-      } finally {
-        pendingFetches.delete(fetchId);
-      }
     },
 
     renderCall(args, theme) {
@@ -441,34 +438,33 @@ export default function (pi: ExtensionAPI) {
     description:
       "Fetch URL(s) and extract readable content as markdown. Supports GitHub repository contents (clone + tree). Content is stored and can be retrieved with get_search_content if truncated.\n\nFor focused answers, use the `prompt` parameter with a specific question — the content will be filtered through a cheap model and only the relevant answer returned (~200-1000 chars instead of full page content).\n\nRaw fetches (without `prompt`) return a preview + file path. Use `read` to explore the full content selectively.",
     parameters: FetchContentParams,
+    prepareArguments: (raw) => normalizeFetchContentInput(raw as any) as any,
 
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-      const { urls: dedupedUrls, forceClone, prompt, noCache } = normalizeFetchContentInput(params);
+      const { urls: dedupedUrls, forceClone, prompt, noCache } = params as any;
 
-      const abortController = new AbortController();
-      const fetchId = generateId();
-      pendingFetches.set(fetchId, abortController);
-
-      const combinedSignal = signal
-        ? AbortSignal.any([signal, abortController.signal])
-        : abortController.signal;
 
       const githubCloneUrls = new Set<string>();
 
-      try {
-        const fetchOne = async (targetUrl: string): Promise<ExtractedContent> => {
+      const fetchOne = async (targetUrl: string): Promise<ExtractedContent> => {
+        try {
           // Check if it's a GitHub URL
           const ghInfo = parseGitHubUrl(targetUrl);
           if (ghInfo) {
-            const ghResult = await extractGitHub(targetUrl, combinedSignal, forceClone);
+            const ghResult = await extractGitHub(targetUrl, signal, forceClone);
             if (ghResult) {
               githubCloneUrls.add(ghResult.url);
               return ghResult;
             }
             // Fall through to normal extraction if GitHub extraction returns null
           }
-          return extractContent(targetUrl, combinedSignal);
-        };
+          return await extractContent(targetUrl, signal);
+        } catch (err) {
+          if (signal?.aborted || (err instanceof Error && err.name === "AbortError")) throw err;
+          const msg = err instanceof Error ? err.message : String(err);
+          return { url: targetUrl, title: targetUrl, content: "", error: msg };
+        }
+      };
 
         // Early cache check for single-URL + prompt (skip fetch entirely on hit)
         if (dedupedUrls.length === 1 && prompt && !noCache) {
@@ -495,7 +491,7 @@ export default function (pi: ExtensionAPI) {
           results = [await fetchOne(dedupedUrls[0])];
         } else {
           const limit = pLimit(3);
-          results = await Promise.all(dedupedUrls.map((url) => limit(() => fetchOne(url))));
+          results = await Promise.all(dedupedUrls.map((url: string) => limit(() => fetchOne(url))));
         }
         const responseId = generateId();
         const storedData: StoredResultData = {
@@ -506,6 +502,7 @@ export default function (pi: ExtensionAPI) {
         };
         storeResult(responseId, storedData);
         pi.appendEntry("web-tools-results", storedData);
+        snapshotStore(ctx);
 
         // Single URL: return content directly (possibly truncated)
         if (results.length === 1) {
@@ -519,13 +516,14 @@ export default function (pi: ExtensionAPI) {
 
           if (prompt) {
             const config = getConfig();
-            const filterResult = await filterContent(
-              r.content,
-              prompt,
-              ctx.modelRegistry,
-              config.filterModel,
-              complete
-            );
+          const filterResult = await filterContent(
+            r.content,
+            prompt,
+            ctx.modelRegistry,
+            config.filterModel,
+            complete,
+            signal,
+          );
 
             if (filterResult.filtered !== null) {
               // Store in cache
@@ -669,13 +667,14 @@ export default function (pi: ExtensionAPI) {
                     return `Source: ${r.url}\n\n${cachedAnswer}`;
                   }
                 }
-                const filterResult = await filterContent(
-                  r.content,
-                  prompt,
-                  ctx.modelRegistry,
-                  config.filterModel,
-                  complete
-                );
+              const filterResult = await filterContent(
+                r.content,
+                prompt,
+                ctx.modelRegistry,
+                config.filterModel,
+                complete,
+                signal,
+              );
                 if (filterResult.filtered !== null) {
                   // Store in cache
                   putCache(r.url, prompt, filterResult.model, filterResult.filtered, config.cacheTTLMinutes, DEFAULT_CACHE_FILE);
@@ -773,9 +772,6 @@ export default function (pi: ExtensionAPI) {
             ptcValue: { responseId, urls: ptcUrls, successCount, totalCount: results.length },
           },
         };
-      } finally {
-        pendingFetches.delete(fetchId);
-      }
     },
 
     renderCall(args, theme) {
@@ -845,24 +841,18 @@ export default function (pi: ExtensionAPI) {
       description:
         "Search GitHub repos, documentation, and Stack Overflow for working code examples. Use for framework usage, API syntax, library patterns, and setup recipes. Returns formatted code snippets, not web pages.",
       parameters: CodeSearchParams,
+      prepareArguments: (raw) => normalizeCodeSearchInput(raw as any) as any,
 
-      async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
-        const { query, tokensNum } = normalizeCodeSearchInput(params);
+      async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+        const { query, tokensNum } = params as any;
 
         const config = getConfig();
-        const abortController = new AbortController();
-        const fetchId = generateId();
-        pendingFetches.set(fetchId, abortController);
-
-        const combinedSignal = signal
-          ? AbortSignal.any([signal, abortController.signal])
-          : abortController.signal;
 
         try {
           const result = await searchContext(query, {
             apiKey: config.exaApiKey,
             tokensNum,
-            signal: combinedSignal,
+            signal,
           });
 
           const responseId = generateId();
@@ -879,6 +869,7 @@ export default function (pi: ExtensionAPI) {
           };
           storeResult(responseId, storedData);
           pi.appendEntry("web-tools-results", storedData);
+          snapshotStore(ctx);
 
           let text = result.content;
           let truncated = false;
@@ -911,8 +902,6 @@ export default function (pi: ExtensionAPI) {
             isError: true,
             details: { query, error: msg, ptcValue: { query, error: msg } },
           };
-        } finally {
-          pendingFetches.delete(fetchId);
         }
       },
 
@@ -975,9 +964,17 @@ export default function (pi: ExtensionAPI) {
     description:
       "Retrieve full content from a previous web_search, code_search, or fetch_content result.",
     parameters: GetSearchContentParams,
+    prepareArguments: (raw) => normalizeGetSearchContentInput(raw as any) as any,
 
-    async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
-      const { responseId, query, queryIndex, url, urlIndex, maxChars } = normalizeGetSearchContentInput(params);
+    async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
+      if (signal?.aborted) {
+        return {
+          content: [{ type: "text" as const, text: "Operation aborted." }],
+          details: {},
+          isError: true,
+        };
+      }
+      const { responseId, query, queryIndex, url, urlIndex, maxChars } = params as any;
 
       const stored = getResult(responseId);
       if (!stored) {

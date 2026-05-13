@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+### Changed
+- Modernize the extension for pi 0.74.x: forward pi-native abort signals directly, branch `session_start` by reason, move tool normalization into `prepareArguments`, and bump package metadata to `4.1.0`. (#040)
+
+### Fixed
+- Preserve `get_search_content` response IDs across `/compact` with a session-id-scoped disk-backed result snapshot and compaction lifecycle hooks. (#040)
+
 ### Fixed
 - adapt pi-web-tools to pi 0.74.x: migrate to `@earendil-works/*` npm scope, `ModelRegistry.getApiKeyAndHeaders` (with custom auth headers threaded through), consolidated `session_start{reason}` lifecycle event with reload-preserves-cache behavior, refreshed `.pi/npm` vendored snapshot, README links + Requirements + 4.0.0 changelog. Major version bump to 4.0.0 — downstream users on pi < 0.74 must stay on `pi-web-tools@3.x`. (#039, #026, #027, #028, #029, #030)
 

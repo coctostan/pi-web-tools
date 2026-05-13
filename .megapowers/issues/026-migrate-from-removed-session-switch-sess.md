@@ -1,7 +1,7 @@
 ---
 id: 26
 type: bugfix
-status: open
+status: done
 created: 2026-05-13T15:45:10.548Z
 priority: 1
 ---

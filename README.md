@@ -544,6 +544,13 @@ constants.ts       Shared constants (timeouts, TTLs)
 
 ## Changelog
 
+## 4.1.0
+
+- **pi-native cancellation**: tool executors now forward the per-call `signal` directly to Exa/extract/filter calls; the manual `pendingFetches` Map and `abortAllPending` helper are gone (~30 lines removed per tool).
+- **Smarter `session_start` lifecycle**: branch on `event.reason` — `reload` preserves the URL cache and temp files, `new` starts clean, `fork` restores from `event.previousSessionFile` via the new `restoreFromSessionFile` helper.
+- **`prepareArguments` adoption**: all four tools (`web_search`, `fetch_content`, `code_search`, `get_search_content`) wire their `normalize*Input` functions into pi's `ToolDefinition.prepareArguments` hook. `numResults` is now a bounded integer in the visible schema.
+- **Compaction-safe result store**: `get_search_content` no longer fails after `/compact`. The session result store is mirrored to `~/.pi/cache/web-tools/results-<sessionId>.json` and rehydrated on `session_start`. Files older than 24h are pruned automatically.
+
 ### 4.0.0
 
 - **Breaking:** requires pi `0.74.0+` and the `@earendil-works/*` npm scope. Users on older pi must stay on `pi-web-tools@3.x`.

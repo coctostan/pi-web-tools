@@ -10,6 +10,39 @@ const VALID_CATEGORIES = new Set([
 const VALID_DETAIL_VALUES = new Set(["summary", "highlights"]);
 const FRESHNESS_MAP: Record<string, number | undefined> = { realtime: 1, day: 24, week: 168, any: undefined };
 
+export type NormalizedWebSearchInput = {
+  queries: string[];
+  numResults: number;
+  type?: "auto" | "instant" | "deep";
+  category?: string;
+  includeDomains?: string[];
+  excludeDomains?: string[];
+  detail?: "summary" | "highlights";
+  maxAgeHours?: number;
+  similarUrl?: string;
+};
+
+export type NormalizedFetchContentInput = {
+  urls: string[];
+  forceClone?: boolean;
+  prompt?: string;
+  noCache?: boolean;
+};
+
+export type NormalizedCodeSearchInput = {
+  query: string;
+  tokensNum?: number;
+};
+
+export type NormalizedGetSearchContentInput = {
+  responseId: string;
+  query?: string;
+  queryIndex?: number;
+  url?: string;
+  urlIndex?: number;
+  maxChars?: number;
+};
+
 export function normalizeWebSearchInput(params: {
   query?: unknown;
   queries?: unknown;
@@ -21,7 +54,7 @@ export function normalizeWebSearchInput(params: {
   detail?: unknown;
   freshness?: unknown;
   similarUrl?: unknown;
-}) {
+}): NormalizedWebSearchInput {
   const query = typeof params.query === "string" ? params.query : undefined;
   const queries = Array.isArray(params.queries)
     ? params.queries.filter((q): q is string => typeof q === "string")
@@ -36,9 +69,12 @@ export function normalizeWebSearchInput(params: {
     throw new Error("Either 'query' or 'queries' must be provided.");
   }
 
-  const numResults = typeof params.numResults === "number" && Number.isFinite(params.numResults)
-    ? params.numResults
-    : undefined;
+  let numResults: number;
+  if (typeof params.numResults === "number" && Number.isFinite(params.numResults)) {
+    numResults = Math.max(1, Math.min(20, Math.round(params.numResults)));
+  } else {
+    numResults = 5;
+  }
 
   const type = typeof params.type === "string" && VALID_SEARCH_TYPES.has(params.type)
     ? params.type as "auto" | "instant" | "deep"
@@ -67,7 +103,7 @@ export function normalizeWebSearchInput(params: {
   return { queries: queryList, numResults, type, category, includeDomains, excludeDomains, detail, maxAgeHours, similarUrl };
 }
 
-export function normalizeFetchContentInput(params: { url?: unknown; urls?: unknown; forceClone?: unknown; prompt?: unknown; noCache?: unknown }) {
+export function normalizeFetchContentInput(params: { url?: unknown; urls?: unknown; forceClone?: unknown; prompt?: unknown; noCache?: unknown }): NormalizedFetchContentInput {
   const url = typeof params.url === "string" ? params.url : undefined;
   const urls = Array.isArray(params.urls)
     ? params.urls.filter((u): u is string => typeof u === "string")
@@ -86,7 +122,7 @@ export function normalizeFetchContentInput(params: { url?: unknown; urls?: unkno
 export function normalizeCodeSearchInput(params: {
   query?: unknown;
   tokensNum?: unknown;
-}) {
+}): NormalizedCodeSearchInput {
   const query = typeof params.query === "string" ? params.query : undefined;
   if (!query) {
     throw new Error("'query' must be provided.");
@@ -107,7 +143,7 @@ export function normalizeGetSearchContentInput(params: {
   url?: unknown;
   urlIndex?: unknown;
   maxChars?: unknown;
-}) {
+}): NormalizedGetSearchContentInput {
   const responseId = typeof params.responseId === "string" ? params.responseId : undefined;
   if (!responseId) {
     throw new Error("'responseId' must be provided.");

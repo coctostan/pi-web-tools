@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   generateId,
   storeResult,
@@ -8,6 +11,7 @@ import {
   clearResults,
   StoredResultData,
 } from "./storage.js";
+
 
 describe("storage", () => {
   beforeEach(() => {
@@ -108,5 +112,26 @@ describe("storage", () => {
     expect(getResult("item-0")).not.toBeNull();
     expect(getResult("item-1")).toBeNull();
     expect(getAllResults()).toHaveLength(50);
+  });
+});
+
+
+describe("restoreFromSessionFile (#036 AC-LIFECYCLE-6)", () => {
+  beforeEach(() => { clearResults(); });
+
+  it("loads entries from the given session-file path and rehydrates the in-memory store", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "web-tools-parent-session-"));
+    const sessionFile = join(dir, "parent.jsonl");
+    writeFileSync(sessionFile, [
+      JSON.stringify({ type: "session", id: "parent" }),
+      JSON.stringify({ type: "custom", customType: "web-tools-results", data: { id: "from-parent", type: "search", timestamp: Date.now(), queries: [] } }),
+    ].join("\n"));
+
+    const { restoreFromSessionFile } = await import("./storage.js");
+    restoreFromSessionFile(sessionFile);
+    const restored = getResult("from-parent");
+    expect(restored).not.toBeNull();
+    expect(restored?.id).toBe("from-parent");
+    rmSync(dir, { recursive: true, force: true });
   });
 });

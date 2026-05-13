@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeWebSearchInput, normalizeFetchContentInput, normalizeCodeSearchInput, dedupeUrls } from "./tool-params.js";
+import { normalizeWebSearchInput, normalizeFetchContentInput, normalizeCodeSearchInput, normalizeGetSearchContentInput, dedupeUrls } from "./tool-params.js";
 
 describe("tool-params", () => {
   it("dedupeUrls preserves order", () => {
@@ -201,5 +201,31 @@ describe("tool-params", () => {
       noCache: "yes",
     });
     expect(result.noCache).toBeUndefined();
+  });
+
+
+  it("normalizeWebSearchInput defaults and clamps numResults for prepareArguments (AC-PREPARE-4)", () => {
+    expect(normalizeWebSearchInput({ query: "q" }).numResults).toBe(5);
+    expect(normalizeWebSearchInput({ query: "q", numResults: 0 }).numResults).toBe(1);
+    expect(normalizeWebSearchInput({ query: "q", numResults: -5 }).numResults).toBe(1);
+    expect(normalizeWebSearchInput({ query: "q", numResults: 100 }).numResults).toBe(20);
+    expect(normalizeWebSearchInput({ query: "q", numResults: 7.6 }).numResults).toBe(8);
+  });
+
+  it("normalize prepare functions produce the post-prepare shapes consumed by execute (AC-PREPARE-3)", () => {
+    expect(normalizeWebSearchInput({ query: "q" }).queries).toEqual(["q"]);
+    expect(normalizeFetchContentInput({ url: "https://a" }).urls).toEqual(["https://a"]);
+    expect(normalizeFetchContentInput({ urls: ["u1", "u1", "u2"] }).urls).toEqual(["u1", "u2"]);
+    expect(normalizeCodeSearchInput({ query: "useState" })).toEqual({ query: "useState", tokensNum: undefined });
+    expect(normalizeGetSearchContentInput({ responseId: "r1" })).toEqual({ responseId: "r1", query: undefined, queryIndex: undefined, url: undefined, urlIndex: undefined, maxChars: undefined });
+  });
+
+  it("normalizeWebSearchInput maps freshness and preserves documented validation errors (AC-PREPARE-6)", () => {
+    expect(normalizeWebSearchInput({ query: "q", freshness: "day" }).maxAgeHours).toBe(24);
+    expect(() => normalizeWebSearchInput({ query: "q", similarUrl: "https://x" })).toThrow("'similarUrl' and 'query'/'queries' are mutually exclusive.");
+    expect(() => normalizeWebSearchInput({})).toThrow("Either 'query' or 'queries' must be provided.");
+    expect(() => normalizeFetchContentInput({})).toThrow("Either 'url' or 'urls' must be provided.");
+    expect(() => normalizeCodeSearchInput({})).toThrow("'query' must be provided.");
+    expect(() => normalizeGetSearchContentInput({})).toThrow("'responseId' must be provided.");
   });
 });

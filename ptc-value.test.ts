@@ -111,6 +111,18 @@ async function getAllTools() {
   };
   const { default: registerExtension } = await import("./index.js");
   registerExtension(pi as any);
+  const fetchContentTool = tools.get("fetch_content");
+  if (fetchContentTool?.prepareArguments) {
+    const originalExecuteFn = fetchContentTool.execute;
+    const originalExecute = originalExecuteFn.bind(fetchContentTool);
+    const wrappedExecute = (_toolCallId: string, params: any, ...rest: any[]) => originalExecute(
+      _toolCallId,
+      fetchContentTool.prepareArguments(params),
+      ...rest,
+    );
+    wrappedExecute.toString = () => originalExecuteFn.toString();
+    fetchContentTool.execute = wrappedExecute;
+  }
   return tools;
 }
 
@@ -135,7 +147,7 @@ describe("web_search ptcValue", () => {
 
     const tools = await getAllTools();
     const tool = tools.get("web_search")!;
-    const result = await tool.execute("call-1", { query: "test query" });
+    const result = await tool.execute("call-1", tool.prepareArguments({ query: "test query" }));
 
     const ptc = result.details.ptcValue;
     expect(ptc).toBeDefined();
@@ -158,7 +170,7 @@ describe("web_search ptcValue", () => {
 
     const tools = await getAllTools();
     const tool = tools.get("web_search")!;
-    const result = await tool.execute("call-err", { query: "fail query" });
+    const result = await tool.execute("call-err", tool.prepareArguments({ query: "fail query" }));
 
     const ptc = result.details.ptcValue;
     expect(ptc.queries[0].error).toBe("API down");
@@ -173,7 +185,7 @@ describe("web_search ptcValue", () => {
 
     const tools = await getAllTools();
     const tool = tools.get("web_search")!;
-    const result = await tool.execute("call-json", { query: "test" });
+    const result = await tool.execute("call-json", tool.prepareArguments({ query: "test" }));
 
     const ptc = result.details.ptcValue;
     expect(() => JSON.parse(JSON.stringify(ptc))).not.toThrow();
@@ -476,7 +488,7 @@ describe("get_search_content ptcValue", () => {
 
     const tools = await getAllTools();
     const searchTool = tools.get("web_search")!;
-    const searchResult = await searchTool.execute("call-s", { query: "test" });
+    const searchResult = await searchTool.execute("call-s", searchTool.prepareArguments({ query: "test" }));
     const responseId = searchResult.details.responseId;
 
     const getTool = tools.get("get_search_content")!;
