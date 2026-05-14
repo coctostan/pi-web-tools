@@ -1,7 +1,18 @@
-// Tests for filter.ts — getApiKeyAndHeaders contract.
-import { describe, it, expect, vi } from "vitest";
-import { resolveFilterModel, filterContent } from "./filter.js";
+# Plan
 
+### Task 1: Refresh filter model resolution contract
+
+Covers AC 1, AC 2, AC 3, AC 4, AC 5, AC 6, AC 7, AC 8, AC 9, AC 10, AC 11, AC 12, AC 13, AC 14.
+
+**Files:**
+- Modify: `filter.test.ts`
+- Modify: `filter.ts`
+- Test: `filter.test.ts`
+
+**Step 1 — Write the failing test**
+Replace the current `describe("resolveFilterModel", ...)` block in `filter.test.ts` with this block, and update the first `filterContent` test to pass and assert `signal` as shown below.
+
+```ts
 const AUTO_DETECT_CANDIDATES = [
   { provider: "anthropic-cc", modelId: "claude-haiku-4-5" },
   { provider: "openai-codex", modelId: "gpt-5.4-mini" },
@@ -122,15 +133,11 @@ describe("resolveFilterModel", () => {
     });
   });
 });
+```
 
-describe("filterContent", () => {
-  const mockModel = {
-    id: "claude-haiku-4-5",
-    provider: "anthropic-cc",
-    api: "anthropic-messages",
-    baseUrl: "https://api.anthropic.com",
-  };
+Then replace the first `filterContent` test with this complete test:
 
+```ts
   it("returns filtered answer and passes apiKey, headers, and signal through to completeFn", async () => {
     const signal = new AbortController().signal;
     const mockRegistry = {
@@ -165,29 +172,11 @@ describe("filterContent", () => {
     expect(options.signal).toBe(signal);
     expect(context.systemPrompt).toContain("ONLY");
   });
+```
 
-  it("threads headers through to completeFn", async () => {
-    const mockRegistry = {
-      find: vi.fn().mockReturnValue(mockModel),
-      getApiKeyAndHeaders: vi.fn().mockResolvedValue({
-        ok: true,
-        apiKey: "oauth-key",
-        headers: { "anthropic-beta": "oauth-2025-04-20" },
-      }),
-    };
-    const mockComplete = vi.fn().mockResolvedValue({
-      content: [{ type: "text", text: "Long enough answer for the threshold." }],
-    });
+Then replace the existing `returns fallback when getApiKeyAndHeaders fails` test in the `filterContent` describe block with this complete test, using the real `filterContent(content, prompt, registry, configuredModel, completeFn, signal?)` signature:
 
-    await filterContent("page", "q", mockRegistry as any, undefined, mockComplete);
-
-    const [, , options] = mockComplete.mock.calls[0];
-    expect(options).toEqual({
-      apiKey: "oauth-key",
-      headers: { "anthropic-beta": "oauth-2025-04-20" },
-    });
-  });
-
+```ts
   it("returns fallback reason without calling completeFn when filter model resolution fails", async () => {
     const mockRegistry = {
       find: vi.fn().mockReturnValue(mockModel),
@@ -209,47 +198,66 @@ describe("filterContent", () => {
     });
     expect(mockComplete).not.toHaveBeenCalled();
   });
+```
 
-  it("returns fallback when complete() throws an error", async () => {
-    const mockRegistry = {
-      find: vi.fn().mockReturnValue(mockModel),
-      getApiKeyAndHeaders: vi.fn().mockResolvedValue({ ok: true, apiKey: "test-key" }),
-    };
-    const mockComplete = vi.fn().mockRejectedValue(new Error("Rate limit exceeded"));
+Any other configured-model strings in the `filterContent` describe block that are meant to resolve `mockModel` must use `"anthropic-cc/claude-haiku-4-5"`, matching the updated `mockModel.provider` below.
 
-    const result = await filterContent(
-      "Some page content",
-      "What is this?",
-      mockRegistry as any,
-      undefined,
-      mockComplete
-    );
+Also update the `mockModel` constant in the `filterContent` describe block to:
 
-    expect(result).toEqual({ filtered: null, reason: "Filter model error: Rate limit exceeded" });
-  });
+```ts
+  const mockModel = {
+    id: "claude-haiku-4-5",
+    provider: "anthropic-cc",
+    api: "anthropic-messages",
+    baseUrl: "https://api.anthropic.com",
+  };
+```
 
-  it("returns fallback when filter response is too short (< 20 chars)", async () => {
-    const mockRegistry = {
-      find: vi.fn().mockReturnValue(mockModel),
-      getApiKeyAndHeaders: vi.fn().mockResolvedValue({ ok: true, apiKey: "test-key" }),
-    };
-    const mockComplete = vi.fn().mockResolvedValue({
-      content: [{ type: "text", text: "OK" }],
-    });
+**Step 2 — Run test, verify it fails**
+Run: `npx vitest run filter.test.ts`
+Expected: FAIL — Vitest reports the first auto-detect assertion against the current implementation, including `expected "spy" to be called with arguments: [ 'anthropic-cc', 'claude-haiku-4-5' ]` because current `filter.ts` still calls `registry.find("anthropic", "claude-haiku-4-5")` first.
 
-    const result = await filterContent("page", "q", mockRegistry as any, undefined, mockComplete);
-    expect(result).toEqual({ filtered: null, reason: "Filter response too short (2 chars)" });
-  });
+**Step 3 — Write minimal implementation**
+In `filter.ts`, replace the current `AUTO_DETECT_MODELS` declaration with:
 
-  it("returns fallback when filter response is empty", async () => {
-    const mockRegistry = {
-      find: vi.fn().mockReturnValue(mockModel),
-      getApiKeyAndHeaders: vi.fn().mockResolvedValue({ ok: true, apiKey: "test-key" }),
-    };
-    const mockComplete = vi.fn().mockResolvedValue({ content: [] });
+```ts
+const AUTO_DETECT_MODELS = [
+  { provider: "anthropic-cc", modelId: "claude-haiku-4-5" },
+  { provider: "openai-codex", modelId: "gpt-5.4-mini" },
+  { provider: "xiaomi", modelId: "mimo-v2.5-pro" },
+] as const;
+```
 
-    const result = await filterContent("page", "q", mockRegistry as any, undefined, mockComplete);
-    expect(result).toEqual({ filtered: null, reason: "Filter response too short (0 chars)" });
-  });
+Do not change `resolveFilterModel`, `filterContent`, the configured-model parsing path, `FilterModelResult`, or `FilterResult`.
 
-});
+**Step 4 — Run test, verify it passes**
+Run: `npx vitest run filter.test.ts`
+Expected: PASS
+
+**Step 5 — Verify no regressions**
+Run: `npm test`
+Expected: all passing
+
+### Task 2: Update README default filter model [no-test] [depends: 1]
+
+Covers AC 15-16.
+
+**Justification:** Documentation-only change. Behavior is covered by Task 1; this task updates the documented config example to match the first auto-detect candidate.
+
+**Files:**
+- Modify: `README.md`
+
+**Step 1 — Make the change**
+In `README.md`, update the full config example so the `filterModel` line reads:
+
+```json
+  "filterModel": "anthropic-cc/claude-haiku-4-5",
+```
+
+Do not change `config.ts`; it currently defaults `filterModel` to `undefined` and contains no default-model string that needs updating.
+
+**Step 2 — Verify**
+Run: `npm test`
+Expected: all passing
+
+Also verify by inspection that `README.md` no longer documents `anthropic/claude-haiku-4-5` as the config example default, and instead documents `anthropic-cc/claude-haiku-4-5`.
