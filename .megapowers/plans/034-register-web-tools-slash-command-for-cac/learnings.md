@@ -1,0 +1,5 @@
+- Command routing stayed easier to verify once `dispatch(subcommand, args, deps)` was kept dependency-injected instead of tied directly to Pi runtime objects.
+- Destructive or admin-facing cache commands need explicit failure signals; best-effort cache helpers are fine for normal lookup paths but can produce false-success UX for slash commands.
+- Cache validation needed semantic checks, not just JSON/object shape checks, because mismatched keys and non-finite timestamps can cause incorrect hits or formatting crashes.
+- Adding an `ok` field to `CacheStats` improved admin error reporting but required all test fixtures to be updated to satisfy TypeScript.
+- Codex adversarial review was useful for data-loss and corrupt-cache edge cases that were not part of the original acceptance criteria.

@@ -10,7 +10,7 @@ import { extractGitHub, clearCloneCache, parseGitHubUrl } from "./github-extract
 import { getConfig, resetConfigCache } from "./config.js";
 import { searchContext } from "./exa-context.js";
 import { filterContent } from "./filter.js";
-import { getCached, putCache } from "./research-cache.js";
+import { getCached, putCache, getCacheStats, clearCache, purgeExpired, resetCounters } from "./research-cache.js";
 import {
   normalizeFetchContentInput,
   normalizeWebSearchInput,
@@ -70,6 +70,7 @@ function rehydrateFromDisk(ctx: ExtensionContext): boolean {
 }
 
 function handleSessionStart(event: SessionStartEvent, ctx: ExtensionContext): void {
+  resetCounters();
   const initialDir = (ctx as any).webToolsResultsDir ?? DEFAULT_RESULTS_DIR;
   pruneStaleStoreFiles(initialDir, 24 * 60 * 60 * 1000);
   switch (event.reason) {
@@ -174,6 +175,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   const registrationConfig = getConfig();
+  if (typeof (pi as any).registerCommand === "function") (pi as any).registerCommand("web-tools", { description: "Inspect and manage the pi-web-tools research cache and session results.", getArgumentCompletions: (prefix: string) => { const items = ["stats", "clear-cache", "purge-expired", "recent", "help"].filter((n) => n.startsWith(prefix)).map((n) => ({ value: n, label: n })); return items.length > 0 ? items : null; }, handler: async (args: string, ctx: any) => { const trimmed = (args ?? "").trim(); const [sub, ...rest] = trimmed.split(/\s+/); const { dispatch } = await import("./commands.js"); await dispatch(sub ?? "", rest.join(" "), { getCacheStats: () => getCacheStats(DEFAULT_CACHE_FILE, getConfig().cacheTTLMinutes), clearCache: () => clearCache(DEFAULT_CACHE_FILE), purgeExpired: () => purgeExpired(DEFAULT_CACHE_FILE), resetCounters: () => resetCounters(), listResults: () => getAllResults(), confirm: (title: string, message: string) => ctx.ui.confirm(title, message), notify: (msg: string, type?: "info" | "warning" | "error") => ctx.ui.notify(msg, type ?? "info"), now: () => Date.now() }); } });
 
   // -------------------------------------------------------------------------
   // Tool 1: web_search

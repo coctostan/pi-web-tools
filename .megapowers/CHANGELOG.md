@@ -1,11 +1,16 @@
 ## [Unreleased]
 
 ### Changed
+
+### Added
+- Add `/web-tools` slash command with `stats`, `clear-cache`, `purge-expired`, `recent`, and `help` subcommands for inspecting session results and managing the persistent research cache. (#034)
 - Replace unmaintained `pdf-parse` with `unpdf` (zero-dep serverless build of Mozilla `pdf.js`) for PDF text extraction in `extract.ts`; preserves `ExtractedContent` shape and `"Failed to extract text from PDF: …"` error wrapper. Adds `dependencies.test.ts` regression guard. (#035)
 - Use canonical `freshness` throughout `web_search`, deriving Exa `maxAgeHours` only at the `/search` request boundary; clarify `"realtime"` as last 1 hour in README and tool schema. (#038)
 - Modernize the extension for pi 0.74.x: forward pi-native abort signals directly, branch `session_start` by reason, move tool normalization into `prepareArguments`, and bump package metadata to `4.1.0`. (#040)
 
 ### Fixed
+
+- Report cache admin read/write failures for `/web-tools stats`, `clear-cache`, and `purge-expired` instead of showing false-success output for corrupt, unreadable, or invalid cache files. (#034)
 - Preserve `get_search_content` response IDs across `/compact` with a session-id-scoped disk-backed result snapshot and compaction lifecycle hooks. (#040)
 
 ### Fixed
