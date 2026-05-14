@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { getCacheKey, getCached, putCache, type CacheEntry } from "./research-cache.js";
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { getCacheKey, getCached, putCache, resetCounters, getHitsForTest, getMissesForTest, getCacheStats, clearCache, purgeExpired, type CacheEntry } from "./research-cache.js";
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -142,5 +142,222 @@ describe("research-cache", () => {
       // Verify the function is callable with expected arity (5 params)
       expect(getCached.length).toBe(5);
     });
+  });
+});
+
+
+describe("resetCounters", () => {
+  it("zeros internal hits and misses counters", () => {
+    resetCounters();
+    expect(getHitsForTest()).toBe(0);
+    expect(getMissesForTest()).toBe(0);
+    expect(typeof resetCounters).toBe("function");
+  });
+});
+
+describe("getCached counter increments", () => {
+  let tempDir: string;
+  let cacheFilePath: string;
+
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), "pi-research-cache-counters-"));
+    cacheFilePath = join(tempDir, "research-cache.json");
+    resetCounters();
+  });
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("increments misses on a cache miss (no entry)", () => {
+    getCached("https://example.com", "p", "m", 1440, cacheFilePath);
+    expect(getMissesForTest()).toBe(1);
+    expect(getHitsForTest()).toBe(0);
+  });
+
+  it("increments hits when an unexpired entry is returned", () => {
+    putCache("https://example.com", "p", "m", "ans", 1440, cacheFilePath);
+    getCached("https://example.com", "p", "m", 1440, cacheFilePath);
+    expect(getHitsForTest()).toBe(1);
+    expect(getMissesForTest()).toBe(0);
+  });
+
+  it("increments misses when entry is expired", () => {
+    const key = getCacheKey("https://example.com", "p", "m");
+    const entry: CacheEntry = {
+      key, url: "https://example.com", prompt: "p", model: "m",
+      answer: "old", fetchedAt: Date.now() - (1441 * 60 * 1000), ttlMinutes: 1440,
+    };
+    writeFileSync(cacheFilePath, JSON.stringify({ [key]: entry }));
+    getCached("https://example.com", "p", "m", 1440, cacheFilePath);
+    expect(getMissesForTest()).toBe(1);
+    expect(getHitsForTest()).toBe(0);
+  });
+});
+
+
+describe("getCacheStats", () => {
+  let tempDir: string;
+  let cacheFilePath: string;
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), "pi-research-cache-stats-"));
+    cacheFilePath = join(tempDir, "research-cache.json");
+    resetCounters();
+  });
+  afterEach(() => { rmSync(tempDir, { recursive: true, force: true }); });
+
+  it("returns zeros and nulls when the cache file does not exist", () => {
+    const stats = getCacheStats(cacheFilePath, 1440);
+    expect(stats).toEqual({
+      entries: 0, hits: 0, misses: 0,
+      oldest: null, newest: null, sizeBytes: 0, ttlMinutes: 1440, ok: true,
+    });
+  });
+
+  it("reports entries/oldest/newest/sizeBytes for a populated cache", () => {
+    const now = Date.now();
+    const k1 = getCacheKey("https://a.com", "p", "m");
+    const k2 = getCacheKey("https://b.com", "p", "m");
+    const data: Record<string, CacheEntry> = {
+      [k1]: { key: k1, url: "https://a.com", prompt: "p", model: "m", answer: "a", fetchedAt: now - 5000, ttlMinutes: 1440 },
+      [k2]: { key: k2, url: "https://b.com", prompt: "p", model: "m", answer: "b", fetchedAt: now - 1000, ttlMinutes: 1440 },
+    };
+    writeFileSync(cacheFilePath, JSON.stringify(data));
+    // bump hits/misses
+    getCached("https://a.com", "p", "m", 1440, cacheFilePath); // hit
+    getCached("https://nope.com", "p", "m", 1440, cacheFilePath); // miss
+
+    const stats = getCacheStats(cacheFilePath, 1440);
+    expect(stats.entries).toBe(2);
+    expect(stats.hits).toBe(1);
+    expect(stats.misses).toBe(1);
+    expect(stats.oldest).toBe(now - 5000);
+    expect(stats.newest).toBe(now - 1000);
+    expect(stats.sizeBytes).toBeGreaterThan(0);
+    expect(stats.ttlMinutes).toBe(1440);
+  });
+
+
+  it("marks corrupt cache files as not ok instead of reporting a clean empty cache", () => {
+    writeFileSync(cacheFilePath, "NOT JSON");
+    const stats = getCacheStats(cacheFilePath, 30);
+    expect(stats.ok).toBe(false);
+    expect(stats.entries).toBe(0);
+    expect(readFileSync(cacheFilePath, "utf-8")).toBe("NOT JSON");
+  });
+
+
+  it("marks structurally invalid cache entries as not ok", () => {
+    writeFileSync(cacheFilePath, JSON.stringify({ bad: {} }));
+    const stats = getCacheStats(cacheFilePath, 30);
+    expect(stats.ok).toBe(false);
+    expect(stats.entries).toBe(0);
+  });
+
+
+  it("marks cache entries with mismatched keys or non-finite TTL data as not ok", () => {
+    const validKey = getCacheKey("https://example.com", "prompt", "model");
+    writeFileSync(cacheFilePath, JSON.stringify({
+      [validKey]: {
+        key: "different-key",
+        url: "https://example.com",
+        prompt: "prompt",
+        model: "model",
+        answer: "answer",
+        fetchedAt: Date.now(),
+        ttlMinutes: 30,
+      },
+    }));
+    expect(getCacheStats(cacheFilePath, 30).ok).toBe(false);
+
+    writeFileSync(cacheFilePath, JSON.stringify({
+      [validKey]: {
+        key: validKey,
+        url: "https://example.com",
+        prompt: "prompt",
+        model: "model",
+        answer: "answer",
+        fetchedAt: null,
+        ttlMinutes: 30,
+      },
+    }));
+    expect(getCacheStats(cacheFilePath, 30).ok).toBe(false);
+  });
+});
+
+
+describe("clearCache", () => {
+  let tempDir: string;
+  let cacheFilePath: string;
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), "pi-research-cache-clear-"));
+    cacheFilePath = join(tempDir, "research-cache.json");
+  });
+  afterEach(() => { rmSync(tempDir, { recursive: true, force: true }); });
+
+  it("empties all entries from an existing cache file", () => {
+    putCache("https://a.com", "p", "m", "ans", 1440, cacheFilePath);
+    expect(existsSync(cacheFilePath)).toBe(true);
+    clearCache(cacheFilePath);
+    expect(getCached("https://a.com", "p", "m", 1440, cacheFilePath)).toBeNull();
+    // file may still exist but with empty object content
+    const raw = JSON.parse(readFileSync(cacheFilePath, "utf-8"));
+    expect(Object.keys(raw)).toHaveLength(0);
+  });
+
+  it("does not throw when cache file is missing", () => {
+    expect(() => clearCache(join(tempDir, "nonexistent.json"))).not.toThrow();
+  });
+});
+
+describe("purgeExpired", () => {
+  let tempDir: string;
+  let cacheFilePath: string;
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), "pi-research-cache-purge-"));
+    cacheFilePath = join(tempDir, "research-cache.json");
+    resetCounters();
+  });
+  afterEach(() => { rmSync(tempDir, { recursive: true, force: true }); });
+
+  it("removes only expired entries and leaves fresh ones", () => {
+    const now = Date.now();
+    const expiredKey = getCacheKey("https://old.com", "p", "m");
+    const freshKey = getCacheKey("https://fresh.com", "p", "m");
+    const data: Record<string, CacheEntry> = {
+      [expiredKey]: { key: expiredKey, url: "https://old.com", prompt: "p", model: "m", answer: "old", fetchedAt: now - (2000 * 60 * 1000), ttlMinutes: 1440 },
+      [freshKey]: { key: freshKey, url: "https://fresh.com", prompt: "p", model: "m", answer: "fresh", fetchedAt: now - 1000, ttlMinutes: 1440 },
+    };
+    writeFileSync(cacheFilePath, JSON.stringify(data));
+
+    purgeExpired(cacheFilePath);
+
+    const raw = JSON.parse(readFileSync(cacheFilePath, "utf-8"));
+    expect(Object.keys(raw)).toHaveLength(1);
+    expect(raw[freshKey]).toBeDefined();
+    expect(raw[expiredKey]).toBeUndefined();
+  });
+
+  it("does not touch hits/misses counters", () => {
+    // seed counters via a hit
+    putCache("https://fresh.com", "p", "m", "x", 1440, cacheFilePath);
+    getCached("https://fresh.com", "p", "m", 1440, cacheFilePath); // hit++
+    const hBefore = getHitsForTest();
+    const mBefore = getMissesForTest();
+    purgeExpired(cacheFilePath);
+    expect(getHitsForTest()).toBe(hBefore);
+    expect(getMissesForTest()).toBe(mBefore);
+  });
+
+  it("does not throw when cache file is missing", () => {
+    expect(() => purgeExpired(join(tempDir, "nope.json"))).not.toThrow();
+  });
+
+
+  it("reports an unsaved result for corrupt cache files instead of false success", () => {
+    writeFileSync(cacheFilePath, "NOT JSON");
+    const result = purgeExpired(cacheFilePath);
+    expect(result.saved).toBe(false);
+    expect(result.removed).toBe(0);
+    expect(readFileSync(cacheFilePath, "utf-8")).toBe("NOT JSON");
   });
 });

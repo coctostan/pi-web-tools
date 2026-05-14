@@ -101,11 +101,13 @@ vi.mock("./offload.js", () => ({
 const cacheState = vi.hoisted(() => ({
   getCached: vi.fn((_url: string, _prompt: string, _model: string, _ttl: number, _path: string): string | null => null),
   putCache: vi.fn(),
+  resetCounters: vi.fn(),
 }));
 
 vi.mock("./research-cache.js", () => ({
   getCached: cacheState.getCached,
   putCache: cacheState.putCache,
+  resetCounters: cacheState.resetCounters,
 }));
 
 async function getFetchContentTool() {
@@ -1872,6 +1874,79 @@ describe("compaction-safe state (#032 AC-COMPACT-5)", () => {
 
     _rmSyncCompact(dir, { recursive: true, force: true });
   });
+});
+
+
+describe("/web-tools slash command registration", () => {
+  beforeEach(() => { vi.clearAllMocks(); vi.resetModules(); });
+
+  async function loadExtensionWithCommandSpy() {
+    const commands = new Map<string, any>();
+    const pi = {
+      on: vi.fn(),
+      registerTool: vi.fn(),
+      registerCommand: vi.fn((name: string, opts: any) => commands.set(name, { name, ...opts })),
+      appendEntry: vi.fn(),
+    };
+    const { default: registerExtension } = await import("./index.js");
+    registerExtension(pi as any);
+    return { pi, commands };
+  }
+
+  it("registers a single /web-tools command with a description", async () => {
+    const { pi, commands } = await loadExtensionWithCommandSpy();
+    expect(pi.registerCommand).toHaveBeenCalledTimes(1);
+    const cmd = commands.get("web-tools");
+    expect(cmd).toBeDefined();
+    expect(typeof cmd.description).toBe("string");
+    expect(cmd.description.length).toBeGreaterThan(0);
+    expect(typeof cmd.handler).toBe("function");
+    expect(typeof cmd.getArgumentCompletions).toBe("function");
+  });
+
+  it("getArgumentCompletions returns the five subcommands filtered by prefix", async () => {
+    const { commands } = await loadExtensionWithCommandSpy();
+    const cmd = commands.get("web-tools");
+    const all = await cmd.getArgumentCompletions("");
+    expect(all.map((i: any) => i.value).sort()).toEqual(
+      ["clear-cache", "help", "purge-expired", "recent", "stats"],
+    );
+    const filtered = await cmd.getArgumentCompletions("pur");
+    expect(filtered.map((i: any) => i.value)).toEqual(["purge-expired"]);
+  });
+});
+
+
+describe("session_start resets cache counters (AC 17)", () => {
+  beforeEach(() => { vi.clearAllMocks(); vi.resetModules(); });
+
+  it.each(["startup", "reload", "new", "resume", "fork"] as const)(
+    "session_start reason=%s invokes resetCounters",
+    async (reason) => {
+      const resetCountersSpy = vi.fn();
+      vi.doMock("./research-cache.js", () => ({
+        getCached: vi.fn(() => null),
+        putCache: vi.fn(),
+        getCacheStats: vi.fn(() => ({ entries: 0, hits: 0, misses: 0, oldest: null, newest: null, sizeBytes: 0, ttlMinutes: 1440 })),
+        clearCache: vi.fn(),
+        purgeExpired: vi.fn(),
+        resetCounters: resetCountersSpy,
+      }));
+      const handlers = new Map<string, any>();
+      const pi = {
+        on: vi.fn((event: string, handler: any) => handlers.set(event, handler)),
+        registerTool: vi.fn(),
+        registerCommand: vi.fn(),
+        appendEntry: vi.fn(),
+      };
+      const { default: registerExtension } = await import("./index.js");
+      registerExtension(pi as any);
+      const handler = handlers.get("session_start");
+      expect(handler).toBeDefined();
+      await handler({ type: "session_start", reason }, { sessionManager: { getEntries: () => [], getSessionId: () => `${reason}-sid` } } as any);
+      expect(resetCountersSpy).toHaveBeenCalledTimes(1);
+    },
+  );
 });
 
 
