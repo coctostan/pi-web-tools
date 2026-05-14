@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Changed
+- Replace unmaintained `pdf-parse` with `unpdf` (zero-dep serverless build of Mozilla `pdf.js`) for PDF text extraction in `extract.ts`; preserves `ExtractedContent` shape and `"Failed to extract text from PDF: …"` error wrapper. Adds `dependencies.test.ts` regression guard. (#035)
 - Use canonical `freshness` throughout `web_search`, deriving Exa `maxAgeHours` only at the `/search` request boundary; clarify `"realtime"` as last 1 hour in README and tool schema. (#038)
 - Modernize the extension for pi 0.74.x: forward pi-native abort signals directly, branch `session_start` by reason, move tool normalization into `prepareArguments`, and bump package metadata to `4.1.0`. (#040)
 
