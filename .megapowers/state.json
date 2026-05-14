@@ -1,53 +1,15 @@
 {
   "version": 1,
-  "activeIssue": "035-replace-unmaintained-pdf-parse-with-unpd",
-  "workflow": "bugfix",
-  "phase": "done",
-  "phaseHistory": [
-    {
-      "from": "reproduce",
-      "to": "diagnose",
-      "timestamp": 1778712132109
-    },
-    {
-      "from": "diagnose",
-      "to": "plan",
-      "timestamp": 1778712391018
-    },
-    {
-      "from": "plan",
-      "to": "implement",
-      "timestamp": 1778712556454
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1778714585764
-    },
-    {
-      "from": "verify",
-      "to": "done",
-      "timestamp": 1778714720992
-    }
-  ],
+  "activeIssue": "034-register-web-tools-slash-command-for-cac",
+  "workflow": "feature",
+  "phase": "brainstorm",
+  "phaseHistory": [],
   "planMode": null,
   "planIteration": 1,
-  "currentTaskIndex": 4,
-  "completedTasks": [
-    1,
-    2,
-    3,
-    4,
-    5
-  ],
+  "currentTaskIndex": 0,
+  "completedTasks": [],
   "tddTaskState": null,
-  "doneActions": [
-    "generate-bugfix-summary",
-    "write-changelog",
-    "capture-learnings",
-    "push-and-pr",
-    "close-issue"
-  ],
+  "doneActions": [],
   "doneChecklistShown": true,
   "megaEnabled": true,
   "branchName": "fix/035-replace-unmaintained-pdf-parse-with-unpd",
