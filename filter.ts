@@ -64,13 +64,15 @@ export async function resolveFilterModel(
   if (configuredModel) {
     const [provider, ...idParts] = configuredModel.split("/");
     const modelId = idParts.join("/");
-    if (provider && modelId) {
-      const model = registry.find(provider, modelId);
-      if (model) {
-        const auth = await tryResolve(registry, model);
-        if (auth) {
-          return { model, apiKey: auth.apiKey, headers: auth.headers };
-        }
+    if (!provider || !modelId) {
+      return { model: null, reason: `Configured filterModel "${configuredModel}" is malformed (expected provider/model-id)` };
+    }
+
+    const model = registry.find(provider, modelId);
+    if (model) {
+      const auth = await tryResolve(registry, model);
+      if (auth) {
+        return { model, apiKey: auth.apiKey, headers: auth.headers };
       }
     }
     return { model: null, reason: `Configured filterModel "${configuredModel}" not available (no model or API key)` };

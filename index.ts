@@ -469,23 +469,24 @@ export default function (pi: ExtensionAPI) {
         }
       };
 
-        // Early cache check for single-URL + prompt (skip fetch entirely on hit)
         if (dedupedUrls.length === 1 && prompt && !noCache) {
           const config = getConfig();
-          const cachedAnswer = getCachedForModels(dedupedUrls[0], prompt, getFilterModelKeys(config.filterModel), config.cacheTTLMinutes, DEFAULT_CACHE_FILE);
-          if (cachedAnswer !== null) {
-            const responseId = generateId();
-            return {
-              content: [{ type: "text", text: `Source: ${dedupedUrls[0]}\n\n${cachedAnswer}` }],
-              details: {
-                responseId,
-                url: dedupedUrls[0],
-                charCount: cachedAnswer.length,
-                filtered: true,
-                cached: true,
-                ptcValue: { responseId, urls: [{ url: dedupedUrls[0], title: null, content: null, filtered: cachedAnswer, filePath: null, charCount: cachedAnswer.length, error: null }], successCount: 1, totalCount: 1 },
-              },
-            };
+          if (config.filterModel) {
+            const cachedAnswer = getCachedForModels(dedupedUrls[0], prompt, getFilterModelKeys(config.filterModel), config.cacheTTLMinutes, DEFAULT_CACHE_FILE);
+            if (cachedAnswer !== null) {
+              const responseId = generateId();
+              return {
+                content: [{ type: "text", text: `Source: ${dedupedUrls[0]}\n\n${cachedAnswer}` }],
+                details: {
+                  responseId,
+                  url: dedupedUrls[0],
+                  charCount: cachedAnswer.length,
+                  filtered: true,
+                  cached: true, filterModel: config.filterModel,
+                  ptcValue: { responseId, urls: [{ url: dedupedUrls[0], title: null, content: null, filtered: cachedAnswer, filePath: null, charCount: cachedAnswer.length, error: null }], successCount: 1, totalCount: 1 },
+                },
+              };
+            }
           }
         }
         let results: ExtractedContent[];
@@ -660,8 +661,8 @@ export default function (pi: ExtensionAPI) {
                   return `❌ ${r.url}: ${r.error}`;
                 }
 
-                // Check cache first (unless noCache)
-                if (!noCache) {
+                // Check cache first (unless noCache) when the effective model is configured.
+                if (!noCache && config.filterModel) {
                   const cachedAnswer = getCachedForModels(r.url, prompt, getFilterModelKeys(config.filterModel), config.cacheTTLMinutes, DEFAULT_CACHE_FILE);
                   if (cachedAnswer !== null) {
                     ptcSources.push({ url: r.url, answer: cachedAnswer, contentLength: cachedAnswer.length });
