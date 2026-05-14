@@ -18,10 +18,15 @@ export type FilterModelResult =
   | { model: MinimalModel; apiKey: string; headers?: Record<string, string> }
   | { model: null; reason: string };
 
-const AUTO_DETECT_MODELS = [
-  { provider: "anthropic", modelId: "claude-haiku-4-5" },
-  { provider: "openai", modelId: "gpt-4o-mini" },
+export const AUTO_DETECT_MODELS = [
+  { provider: "anthropic-cc", modelId: "claude-haiku-4-5" },
+  { provider: "openai-codex", modelId: "gpt-5.4-mini" },
+  { provider: "xiaomi", modelId: "mimo-v2.5-pro" },
 ] as const;
+
+export function getFilterModelKeys(configuredModel?: string): string[] {
+  return configuredModel ? [configuredModel] : AUTO_DETECT_MODELS.map((model) => `${model.provider}/${model.modelId}`);
+}
 
 type CompleteFn = (model: Model<Api>, context: Context, options?: ProviderStreamOptions) => Promise<AssistantMessage>;
 

@@ -9,8 +9,8 @@ import { extractContent, fetchAllContent, clearUrlCache } from "./extract.js";
 import { extractGitHub, clearCloneCache, parseGitHubUrl } from "./github-extract.js";
 import { getConfig, resetConfigCache } from "./config.js";
 import { searchContext } from "./exa-context.js";
-import { filterContent } from "./filter.js";
-import { getCached, putCache, getCacheStats, clearCache, purgeExpired, resetCounters } from "./research-cache.js";
+import { filterContent, getFilterModelKeys } from "./filter.js";
+import { getCached, getCachedForModels, putCache, getCacheStats, clearCache, purgeExpired, resetCounters } from "./research-cache.js";
 import {
   normalizeFetchContentInput,
   normalizeWebSearchInput,
@@ -39,6 +39,7 @@ const MAX_INLINE_CONTENT = 30000;
 import { join } from "node:path";
 import { homedir } from "node:os";
 const DEFAULT_CACHE_FILE = join(homedir(), ".pi", "cache", "web-tools", "research-cache.json");
+
 
 // ---------------------------------------------------------------------------
 // Session event handlers
@@ -471,8 +472,7 @@ export default function (pi: ExtensionAPI) {
         // Early cache check for single-URL + prompt (skip fetch entirely on hit)
         if (dedupedUrls.length === 1 && prompt && !noCache) {
           const config = getConfig();
-          const resolvedModel = config.filterModel ?? "anthropic/claude-haiku-4-5";
-          const cachedAnswer = getCached(dedupedUrls[0], prompt, resolvedModel, config.cacheTTLMinutes, DEFAULT_CACHE_FILE);
+          const cachedAnswer = getCachedForModels(dedupedUrls[0], prompt, getFilterModelKeys(config.filterModel), config.cacheTTLMinutes, DEFAULT_CACHE_FILE);
           if (cachedAnswer !== null) {
             const responseId = generateId();
             return {
@@ -662,8 +662,7 @@ export default function (pi: ExtensionAPI) {
 
                 // Check cache first (unless noCache)
                 if (!noCache) {
-                  const resolvedModel = config.filterModel ?? "anthropic/claude-haiku-4-5";
-                  const cachedAnswer = getCached(r.url, prompt, resolvedModel, config.cacheTTLMinutes, DEFAULT_CACHE_FILE);
+                  const cachedAnswer = getCachedForModels(r.url, prompt, getFilterModelKeys(config.filterModel), config.cacheTTLMinutes, DEFAULT_CACHE_FILE);
                   if (cachedAnswer !== null) {
                     ptcSources.push({ url: r.url, answer: cachedAnswer, contentLength: cachedAnswer.length });
                     return `Source: ${r.url}\n\n${cachedAnswer}`;

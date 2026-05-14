@@ -152,6 +152,30 @@ export function getCached(
   return entry.answer;
 }
 
+export function getCachedForModels(
+  url: string,
+  prompt: string,
+  models: readonly string[],
+  _ttlMinutes: number,
+  cacheFilePath: string
+): string | null {
+  const cache = loadCache(cacheFilePath);
+  const now = Date.now();
+  for (const model of models) {
+    const key = getCacheKey(url, prompt, model);
+    const entry = cache[key];
+    if (!entry) continue;
+    if (now > entry.fetchedAt + entry.ttlMinutes * 60 * 1000) {
+      delete cache[key];
+      continue;
+    }
+    hits++;
+    return entry.answer;
+  }
+  misses++;
+  return null;
+}
+
 export function getCacheStats(cacheFilePath: string, ttlMinutes: number): CacheStats {
   const loaded = loadCacheResult(cacheFilePath);
   const values = Object.values(loaded.cache);

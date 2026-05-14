@@ -1,0 +1,5 @@
+- The filter model candidate list affects more than model resolution; prompt-cache lookup keys also need to track the same configured/default model order.
+- A naive fallback cache lookup can distort cache stats by counting one user request as multiple misses, so multi-key lookup needed a single logical helper.
+- Keeping configured `filterModel` resolution separate from auto-detect made the behavior change small and preserved backward compatibility for explicit provider/model strings.
+- Review caught an integration regression that unit tests for `resolveFilterModel` alone could not expose; cache behavior needs end-to-end prompt-mode coverage.
+- Mocked module surfaces need updates whenever new named exports are consumed by integration code, even if the mocked test does not directly exercise that helper.

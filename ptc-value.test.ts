@@ -78,6 +78,11 @@ vi.mock("./extract.js", () => ({
 
 vi.mock("./filter.js", () => ({
   filterContent: state.filterContent,
+  getFilterModelKeys: vi.fn((configuredModel?: string) => configuredModel ? [configuredModel] : [
+    "anthropic-cc/claude-haiku-4-5",
+    "openai-codex/gpt-5.4-mini",
+    "xiaomi/mimo-v2.5-pro",
+  ]),
 }));
 
 const offloadState = vi.hoisted(() => ({
@@ -96,6 +101,7 @@ vi.mock("./offload.js", () => ({
 
 vi.mock("./research-cache.js", () => ({
   getCached: vi.fn(() => null),
+  getCachedForModels: vi.fn(() => null),
   putCache: vi.fn(),
 }));
 

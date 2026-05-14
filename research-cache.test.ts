@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { getCacheKey, getCached, putCache, resetCounters, getHitsForTest, getMissesForTest, getCacheStats, clearCache, purgeExpired, type CacheEntry } from "./research-cache.js";
+import { getCacheKey, getCached, getCachedForModels, putCache, resetCounters, getHitsForTest, getMissesForTest, getCacheStats, clearCache, purgeExpired, type CacheEntry } from "./research-cache.js";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -179,6 +179,20 @@ describe("getCached counter increments", () => {
     getCached("https://example.com", "p", "m", 1440, cacheFilePath);
     expect(getHitsForTest()).toBe(1);
     expect(getMissesForTest()).toBe(0);
+  });
+
+  it("getCachedForModels counts one hit when a later model matches", () => {
+    putCache("https://example.com", "p", "model-b", "ans", 1440, cacheFilePath);
+    const result = getCachedForModels("https://example.com", "p", ["model-a", "model-b", "model-c"], 1440, cacheFilePath);
+    expect(result).toBe("ans");
+    expect(getHitsForTest()).toBe(1);
+    expect(getMissesForTest()).toBe(0);
+  });
+
+  it("getCachedForModels counts one miss when no model matches", () => {
+    getCachedForModels("https://example.com", "p", ["model-a", "model-b", "model-c"], 1440, cacheFilePath);
+    expect(getHitsForTest()).toBe(0);
+    expect(getMissesForTest()).toBe(1);
   });
 
   it("increments misses when entry is expired", () => {

@@ -88,6 +88,16 @@ vi.mock("./extract.js", () => ({
 
 vi.mock("./filter.js", () => ({
   filterContent: state.filterContent,
+  AUTO_DETECT_MODELS: [
+    { provider: "anthropic-cc", modelId: "claude-haiku-4-5" },
+    { provider: "openai-codex", modelId: "gpt-5.4-mini" },
+    { provider: "xiaomi", modelId: "mimo-v2.5-pro" },
+  ],
+  getFilterModelKeys: vi.fn((configuredModel?: string) => configuredModel ? [configuredModel] : [
+    "anthropic-cc/claude-haiku-4-5",
+    "openai-codex/gpt-5.4-mini",
+    "xiaomi/mimo-v2.5-pro",
+  ]),
 }));
 
 vi.mock("./offload.js", () => ({
@@ -100,12 +110,14 @@ vi.mock("./offload.js", () => ({
 
 const cacheState = vi.hoisted(() => ({
   getCached: vi.fn((_url: string, _prompt: string, _model: string, _ttl: number, _path: string): string | null => null),
+  getCachedForModels: vi.fn((_url: string, _prompt: string, _models: readonly string[], _ttl: number, _path: string): string | null => null),
   putCache: vi.fn(),
   resetCounters: vi.fn(),
 }));
 
 vi.mock("./research-cache.js", () => ({
   getCached: cacheState.getCached,
+  getCachedForModels: cacheState.getCachedForModels,
   putCache: cacheState.putCache,
   resetCounters: cacheState.resetCounters,
 }));
@@ -356,7 +368,7 @@ describe("session lifecycle", () => {
 
     await handler({});
 
-    expect(cacheState.getCached).not.toHaveBeenCalled();
+    expect(cacheState.getCachedForModels).not.toHaveBeenCalled();
     expect(cacheState.putCache).not.toHaveBeenCalled();
   });
 
@@ -1151,7 +1163,7 @@ describe("web_search similarUrl routing", () => {
 describe("fetch_content research cache integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    cacheState.getCached.mockReset().mockReturnValue(null);
+    cacheState.getCachedForModels.mockReset().mockReturnValue(null);
     cacheState.putCache.mockReset();
     state.extractContent.mockResolvedValue({
       url: "https://docs.example.com/api",
@@ -1161,13 +1173,13 @@ describe("fetch_content research cache integration", () => {
     });
     state.filterContent.mockResolvedValue({
       filtered: "Rate limit is 100/min.",
-      model: "anthropic/claude-haiku-4-5",
+      model: "anthropic-cc/claude-haiku-4-5",
     });
     offloadState.offloadToFile.mockReturnValue("/tmp/pi-web-test.txt");
   });
 
   it("returns cached answer on cache hit without calling extractContent or filterContent", async () => {
-    cacheState.getCached.mockReturnValueOnce("Cached: Rate limit is 100/min.");
+    cacheState.getCachedForModels.mockReturnValueOnce("Cached: Rate limit is 100/min.");
 
     const { fetchContentTool } = await getFetchContentTool();
     const ctx = {
@@ -1182,7 +1194,14 @@ describe("fetch_content research cache integration", () => {
       ctx
     );
 
-    expect(cacheState.getCached).toHaveBeenCalled();
+    expect(cacheState.getCachedForModels).toHaveBeenCalled();
+    expect(cacheState.getCachedForModels).toHaveBeenCalledWith(
+      "https://docs.example.com/api",
+      "What is the rate limit?",
+      ["anthropic-cc/claude-haiku-4-5", "openai-codex/gpt-5.4-mini", "xiaomi/mimo-v2.5-pro"],
+      1440,
+      expect.any(String)
+    );
     expect(state.extractContent).not.toHaveBeenCalled();
     expect(state.filterContent).not.toHaveBeenCalled();
 
@@ -1192,8 +1211,37 @@ describe("fetch_content research cache integration", () => {
     expect(result.details.cached).toBe(true);
   });
 
+  it("passes default filter cache candidates in auto-detect order", async () => {
+    cacheState.getCachedForModels.mockReturnValueOnce("Cached from second candidate");
+
+    const { fetchContentTool } = await getFetchContentTool();
+    const ctx = {
+      modelRegistry: { find: vi.fn(), getApiKey: vi.fn() },
+    } as any;
+
+    const result = await fetchContentTool.execute(
+      "call-cached-second",
+      { url: "https://docs.example.com/api", prompt: "What is the rate limit?" },
+      undefined,
+      undefined,
+      ctx
+    );
+
+    expect(cacheState.getCachedForModels).toHaveBeenCalledWith(
+      "https://docs.example.com/api",
+      "What is the rate limit?",
+      ["anthropic-cc/claude-haiku-4-5", "openai-codex/gpt-5.4-mini", "xiaomi/mimo-v2.5-pro"],
+      1440,
+      expect.any(String)
+    );
+    expect(state.extractContent).not.toHaveBeenCalled();
+    expect(state.filterContent).not.toHaveBeenCalled();
+    expect(getText(result)).toContain("Cached from second candidate");
+    expect(result.details.cached).toBe(true);
+  });
+
   it("fetches and stores result on cache miss", async () => {
-    cacheState.getCached.mockReturnValueOnce(null);
+    cacheState.getCachedForModels.mockReturnValueOnce(null);
 
     const { fetchContentTool } = await getFetchContentTool();
     const ctx = {
@@ -1208,13 +1256,13 @@ describe("fetch_content research cache integration", () => {
       ctx
     );
 
-    expect(cacheState.getCached).toHaveBeenCalled();
+    expect(cacheState.getCachedForModels).toHaveBeenCalled();
     expect(state.extractContent).toHaveBeenCalled();
     expect(state.filterContent).toHaveBeenCalled();
     expect(cacheState.putCache).toHaveBeenCalledWith(
       "https://docs.example.com/api",
       "What is the rate limit?",
-      "anthropic/claude-haiku-4-5",
+      "anthropic-cc/claude-haiku-4-5",
       "Rate limit is 100/min.",
       1440,
       expect.any(String)
@@ -1226,7 +1274,7 @@ describe("fetch_content research cache integration", () => {
   });
 
   it("noCache skips cache read but still writes to cache after fresh fetch", async () => {
-    cacheState.getCached.mockReturnValueOnce("Should not be used");
+    cacheState.getCachedForModels.mockReturnValueOnce("Should not be used");
 
     const { fetchContentTool } = await getFetchContentTool();
     const ctx = {
@@ -1241,13 +1289,13 @@ describe("fetch_content research cache integration", () => {
       ctx
     );
 
-    expect(cacheState.getCached).not.toHaveBeenCalled();
+    expect(cacheState.getCachedForModels).not.toHaveBeenCalled();
     expect(state.extractContent).toHaveBeenCalled();
     expect(state.filterContent).toHaveBeenCalled();
     expect(cacheState.putCache).toHaveBeenCalledWith(
       "https://docs.example.com/api",
       "What is the rate limit?",
-      "anthropic/claude-haiku-4-5",
+      "anthropic-cc/claude-haiku-4-5",
       "Rate limit is 100/min.",
       1440,
       expect.any(String)
@@ -1265,7 +1313,7 @@ describe("fetch_content research cache integration", () => {
       return { url, title: "B Docs", content: "RAW B", error: null };
     });
 
-    cacheState.getCached.mockImplementation((url: string) => {
+    cacheState.getCachedForModels.mockImplementation((url: string) => {
       if (url === "https://a.example/docs") return "Cached A answer";
       return null;
     });
@@ -1273,7 +1321,7 @@ describe("fetch_content research cache integration", () => {
     state.filterContent.mockReset();
     state.filterContent.mockResolvedValueOnce({
       filtered: "Fresh B answer",
-      model: "anthropic/claude-haiku-4-5",
+      model: "anthropic-cc/claude-haiku-4-5",
     });
 
     const { fetchContentTool } = await getFetchContentTool();
@@ -1309,7 +1357,7 @@ describe("fetch_content research cache integration", () => {
     expect(cacheState.putCache).toHaveBeenCalledWith(
       "https://b.example/docs",
       "What are the rate limits?",
-      "anthropic/claude-haiku-4-5",
+      "anthropic-cc/claude-haiku-4-5",
       "Fresh B answer",
       1440,
       expect.any(String)

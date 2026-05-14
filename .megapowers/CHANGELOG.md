@@ -11,6 +11,7 @@
 ### Fixed
 
 - Report cache admin read/write failures for `/web-tools stats`, `clear-cache`, and `purge-expired` instead of showing false-success output for corrupt, unreadable, or invalid cache files. (#034)
+- Refresh prompt filter auto-detection to try `anthropic-cc/claude-haiku-4-5`, `openai-codex/gpt-5.4-mini`, then `xiaomi/mimo-v2.5-pro`, and align prompt-cache lookups with that fallback order. (#031)
 - Preserve `get_search_content` response IDs across `/compact` with a session-id-scoped disk-backed result snapshot and compaction lifecycle hooks. (#040)
 
 ### Fixed

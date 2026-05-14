@@ -333,7 +333,7 @@ The package reads config from `~/.pi/web-tools.json` and hot-reloads it every 30
 ### Full config example
 {
   "exaApiKey": "your-exa-key",
-  "filterModel": "anthropic/claude-haiku-4-5",
+  "filterModel": "anthropic-cc/claude-haiku-4-5",
   "cacheTTLMinutes": 1440,
   "github": {
     "maxRepoSizeMB": 350,
