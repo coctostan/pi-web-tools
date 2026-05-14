@@ -78,6 +78,22 @@ describe("resolveFilterModel", () => {
     });
   });
 
+  it("returns malformed-config failure without registry lookup for invalid configured filterModel", async () => {
+    const mockRegistry = {
+      find: vi.fn(),
+      getApiKeyAndHeaders: vi.fn(),
+    };
+
+    const result = await resolveFilterModel(mockRegistry as any, "provider/");
+
+    expect(result).toEqual({
+      model: null,
+      reason: 'Configured filterModel "provider/" is malformed (expected provider/model-id)',
+    });
+    expect(mockRegistry.find).not.toHaveBeenCalled();
+    expect(mockRegistry.getApiKeyAndHeaders).not.toHaveBeenCalled();
+  });
+
   it("auto-detects the first candidate when no config and credentials resolve ok:true", async () => {
     const [first] = AUTO_DETECT_CANDIDATES;
     const mockRegistry = createAutoDetectRegistry({ authenticated: [first] });

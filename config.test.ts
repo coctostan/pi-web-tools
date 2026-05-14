@@ -60,6 +60,15 @@ describe("config", () => {
     expect(config.filterModel).toBeUndefined();
   });
 
+  it("ignores malformed filterModel strings", () => {
+    for (const value of ["provider/", "/model", "noslash", "", 42, null]) {
+      writeFileSync(configPath, JSON.stringify({ filterModel: value }));
+      resetConfigCache();
+      const config = getConfig();
+      expect(config.filterModel).toBeUndefined();
+    }
+  });
+
   it("reads config from file correctly", () => {
     const fileConfig = {
       exaApiKey: "test-key-from-file",

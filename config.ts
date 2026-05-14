@@ -91,8 +91,9 @@ function buildConfig(): WebToolsConfig {
     exaApiKey = DEFAULT_CONFIG.exaApiKey;
   }
 
-  const filterModel = typeof file["filterModel"] === "string" && file["filterModel"].includes("/")
-    ? file["filterModel"]
+  const rawFilterModel = file["filterModel"];
+  const filterModel = typeof rawFilterModel === "string" && /^[^/\s]+\/\S.*$/.test(rawFilterModel)
+    ? rawFilterModel
     : undefined;
   const fileTools = (file["tools"] && typeof file["tools"] === "object" && !Array.isArray(file["tools"]))
     ? file["tools"] as Record<string, unknown>

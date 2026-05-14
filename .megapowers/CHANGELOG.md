@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Changed
+- Make `fetch_content({ prompt })` use configurable `filterModel` values in `provider/model-id` format while preserving auto-detection, raw-content fallback, and cache separation by effective model. (#041)
 
 ### Added
 - Add `/web-tools` slash command with `stats`, `clear-cache`, `purge-expired`, `recent`, and `help` subcommands for inspecting session results and managing the persistent research cache. (#034)

@@ -1,0 +1,6 @@
+- The existing `filterModel` field was the right public surface; adding a `summarizationModel` alias would have expanded scope without improving the user workflow.
+- Cache correctness depends on knowing the effective model identity; auto-detect mode should not read prompt-filtered cache entries before model resolution.
+- There are two distinct malformed cases: persisted malformed config is ignored by `getConfig()`, while malformed direct values passed to `resolveFilterModel()` produce a structured failure reason.
+- Result metadata matters for observability: exposing `details.filterModel` makes cache hits and filtered responses easier to debug.
+- Regenerating `dist/` after source changes is required in this repo, and verification should inspect generated output for parity.
+- Skeptical review was useful for clarifying spec intent around malformed persisted config versus direct resolver inputs.

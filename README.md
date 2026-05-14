@@ -354,12 +354,14 @@ The package reads config from `~/.pi/web-tools.json` and hot-reloads it every 30
 | Setting | Description |
 |---------|-------------|
 | `exaApiKey` | Exa API key used by `web_search` and `code_search` |
-| `filterModel` | Cheap model used by `fetch_content({ prompt })` |
+| `filterModel` | Summarization/filter model used by `fetch_content({ prompt })`, in `provider/model-id` format |
 | `github.maxRepoSizeMB` | Max GitHub repo size before refusing or requiring force clone |
 | `github.cloneTimeoutSeconds` | Clone timeout |
 | `github.clonePath` | Cache directory for cloned repos |
 | `tools.*` | Enable or disable individual tools |
 | `cacheTTLMinutes` | TTL in minutes for the persistent research cache (default: `1440` = 24h) |
+
+Omit `filterModel` to let pi-web-tools auto-detect an available cheap filter model from its built-in candidate list. The config field is intentionally named `filterModel`; there is no separate `summarizationModel` setting.
 
 To use a different config path:
 

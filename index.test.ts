@@ -22,7 +22,7 @@ vi.mock("p-limit", () => ({
 const configState = vi.hoisted(() => ({
   value: {
     exaApiKey: null,
-    filterModel: undefined,
+    filterModel: undefined as string | undefined,
     github: {
       maxRepoSizeMB: 350,
       cloneTimeoutSeconds: 30,
@@ -1163,6 +1163,7 @@ describe("web_search similarUrl routing", () => {
 describe("fetch_content research cache integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    configState.value.filterModel = "anthropic-cc/claude-haiku-4-5";
     cacheState.getCachedForModels.mockReset().mockReturnValue(null);
     cacheState.putCache.mockReset();
     state.extractContent.mockResolvedValue({
@@ -1198,7 +1199,7 @@ describe("fetch_content research cache integration", () => {
     expect(cacheState.getCachedForModels).toHaveBeenCalledWith(
       "https://docs.example.com/api",
       "What is the rate limit?",
-      ["anthropic-cc/claude-haiku-4-5", "openai-codex/gpt-5.4-mini", "xiaomi/mimo-v2.5-pro"],
+      ["anthropic-cc/claude-haiku-4-5"],
       1440,
       expect.any(String)
     );
@@ -1211,33 +1212,89 @@ describe("fetch_content research cache integration", () => {
     expect(result.details.cached).toBe(true);
   });
 
-  it("passes default filter cache candidates in auto-detect order", async () => {
-    cacheState.getCachedForModels.mockReturnValueOnce("Cached from second candidate");
+  it("returns configured-model cache hit with filterModel detail", async () => {
+    cacheState.getCachedForModels.mockReturnValueOnce("Cached answer from configured model.");
 
-    const { fetchContentTool } = await getFetchContentTool();
-    const ctx = {
-      modelRegistry: { find: vi.fn(), getApiKey: vi.fn() },
-    } as any;
+    const previousFilterModel = configState.value.filterModel;
+    configState.value.filterModel = "openai-codex/gpt-5.4-mini";
+    try {
+      const { fetchContentTool } = await getFetchContentTool();
+      const ctx = {
+        modelRegistry: { find: vi.fn(), getApiKeyAndHeaders: vi.fn() },
+      } as any;
 
-    const result = await fetchContentTool.execute(
-      "call-cached-second",
-      { url: "https://docs.example.com/api", prompt: "What is the rate limit?" },
-      undefined,
-      undefined,
-      ctx
-    );
+      const result = await fetchContentTool.execute(
+        "call-configured-cache-hit",
+        { url: "https://docs.example.com/api", prompt: "What is the rate limit?" },
+        undefined,
+        undefined,
+        ctx
+      );
 
-    expect(cacheState.getCachedForModels).toHaveBeenCalledWith(
-      "https://docs.example.com/api",
-      "What is the rate limit?",
-      ["anthropic-cc/claude-haiku-4-5", "openai-codex/gpt-5.4-mini", "xiaomi/mimo-v2.5-pro"],
-      1440,
-      expect.any(String)
-    );
-    expect(state.extractContent).not.toHaveBeenCalled();
-    expect(state.filterContent).not.toHaveBeenCalled();
-    expect(getText(result)).toContain("Cached from second candidate");
-    expect(result.details.cached).toBe(true);
+      expect(cacheState.getCachedForModels).toHaveBeenCalledWith(
+        "https://docs.example.com/api",
+        "What is the rate limit?",
+        ["openai-codex/gpt-5.4-mini"],
+        1440,
+        expect.any(String)
+      );
+      expect(state.extractContent).not.toHaveBeenCalled();
+      expect(state.filterContent).not.toHaveBeenCalled();
+      expect(result.details.cached).toBe(true);
+      expect(result.details.filterModel).toBe("openai-codex/gpt-5.4-mini");
+      expect(getText(result)).toContain("Cached answer from configured model.");
+    } finally {
+      configState.value.filterModel = previousFilterModel;
+    }
+  });
+
+  it("skips cache read in auto-detect mode so stale answers from another model are not reused", async () => {
+    cacheState.getCachedForModels.mockReturnValueOnce("Cached from a different model");
+    state.filterContent.mockReset();
+    state.filterContent.mockResolvedValueOnce({
+      filtered: "Fresh answer from the effective model.",
+      model: "anthropic-cc/claude-haiku-4-5",
+    });
+
+    const previousFilterModel = configState.value.filterModel;
+    configState.value.filterModel = undefined;
+    try {
+      const { fetchContentTool } = await getFetchContentTool();
+      const ctx = {
+        modelRegistry: { find: vi.fn(), getApiKeyAndHeaders: vi.fn() },
+      } as any;
+
+      const result = await fetchContentTool.execute(
+        "call-auto-detect-cache-skip",
+        { url: "https://docs.example.com/api", prompt: "What is the rate limit?" },
+        undefined,
+        undefined,
+        ctx
+      );
+
+      expect(cacheState.getCachedForModels).not.toHaveBeenCalled();
+      expect(state.extractContent).toHaveBeenCalled();
+      expect(state.filterContent).toHaveBeenCalledWith(
+        "RAW PAGE CONTENT",
+        "What is the rate limit?",
+        ctx.modelRegistry,
+        undefined,
+        expect.any(Function),
+        undefined
+      );
+      expect(cacheState.putCache).toHaveBeenCalledWith(
+        "https://docs.example.com/api",
+        "What is the rate limit?",
+        "anthropic-cc/claude-haiku-4-5",
+        "Fresh answer from the effective model.",
+        1440,
+        expect.any(String)
+      );
+      expect(getText(result)).toContain("Fresh answer from the effective model.");
+      expect(getText(result)).not.toContain("Cached from a different model");
+    } finally {
+      configState.value.filterModel = previousFilterModel;
+    }
   });
 
   it("fetches and stores result on cache miss", async () => {
@@ -1349,7 +1406,7 @@ describe("fetch_content research cache integration", () => {
       "RAW B",
       "What are the rate limits?",
       ctx.modelRegistry,
-      undefined,
+      "anthropic-cc/claude-haiku-4-5",
       expect.any(Function),
       undefined
     );
