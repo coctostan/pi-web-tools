@@ -1,60 +1,16 @@
 {
   "version": 1,
-  "activeIssue": "031-refresh-filter-ts-auto-detect-candidate-",
+  "activeIssue": "041-make-the-summarization-model-configurabl",
   "workflow": "feature",
-  "phase": "done",
-  "phaseHistory": [
-    {
-      "from": "brainstorm",
-      "to": "spec",
-      "timestamp": 1778769578248
-    },
-    {
-      "from": "spec",
-      "to": "plan",
-      "timestamp": 1778773262496
-    },
-    {
-      "from": "plan",
-      "to": "implement",
-      "timestamp": 1778778062768
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1778779391256
-    },
-    {
-      "from": "verify",
-      "to": "code-review",
-      "timestamp": 1778780354284
-    },
-    {
-      "from": "code-review",
-      "to": "done",
-      "timestamp": 1778782131775
-    }
-  ],
+  "phase": "brainstorm",
+  "phaseHistory": [],
   "planMode": null,
-  "planIteration": 2,
-  "currentTaskIndex": 1,
-  "completedTasks": [
-    1,
-    2
-  ],
-  "tddTaskState": {
-    "taskIndex": 2,
-    "state": "test-written",
-    "skipped": false
-  },
-  "doneActions": [
-    "generate-docs",
-    "write-changelog",
-    "capture-learnings",
-    "push-and-pr",
-    "close-issue"
-  ],
-  "doneChecklistShown": true,
+  "planIteration": 0,
+  "currentTaskIndex": 0,
+  "completedTasks": [],
+  "tddTaskState": null,
+  "doneActions": [],
+  "doneChecklistShown": false,
   "megaEnabled": true,
   "branchName": "feat/031-refresh-filter-ts-auto-detect-candidate-",
   "baseBranch": "main"
