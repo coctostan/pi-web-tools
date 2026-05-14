@@ -280,7 +280,7 @@ The tool tries `gh repo clone` first, then falls back to `git clone`.
 fetch_content({ url: "https://arxiv.org/pdf/2312.00752" })
 ```
 
-PDF text is extracted with `pdf-parse`. Corrupt, encrypted, empty, or oversized PDFs return a clear error.
+PDF text is extracted with [`unpdf`](https://github.com/unjs/unpdf) (a serverless build of Mozilla `pdf.js`). Corrupt, encrypted, empty, or oversized PDFs return a clear error.
 
 ### `code_search`
 
