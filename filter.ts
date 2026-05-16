@@ -19,8 +19,8 @@ export type FilterModelResult =
   | { model: null; reason: string };
 
 export const AUTO_DETECT_MODELS = [
-  { provider: "anthropic-cc", modelId: "claude-haiku-4-5" },
   { provider: "openai-codex", modelId: "gpt-5.4-mini" },
+  { provider: "anthropic-cc", modelId: "claude-haiku-4-5" },
   { provider: "xiaomi", modelId: "mimo-v2.5-pro" },
 ] as const;
 

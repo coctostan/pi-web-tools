@@ -3,8 +3,8 @@ import { describe, it, expect, vi } from "vitest";
 import { resolveFilterModel, filterContent } from "./filter.js";
 
 const AUTO_DETECT_CANDIDATES = [
-  { provider: "anthropic-cc", modelId: "claude-haiku-4-5" },
   { provider: "openai-codex", modelId: "gpt-5.4-mini" },
+  { provider: "anthropic-cc", modelId: "claude-haiku-4-5" },
   { provider: "xiaomi", modelId: "mimo-v2.5-pro" },
 ] as const;
 
@@ -134,7 +134,7 @@ describe("resolveFilterModel", () => {
 
     expect(result).toEqual({
       model: null,
-      reason: "No filter model available (tried anthropic-cc/claude-haiku-4-5, openai-codex/gpt-5.4-mini, xiaomi/mimo-v2.5-pro)",
+      reason: "No filter model available (tried openai-codex/gpt-5.4-mini, anthropic-cc/claude-haiku-4-5, xiaomi/mimo-v2.5-pro)",
     });
   });
 });

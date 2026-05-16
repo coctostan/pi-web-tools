@@ -94,8 +94,8 @@ vi.mock("./filter.js", () => ({
     { provider: "xiaomi", modelId: "mimo-v2.5-pro" },
   ],
   getFilterModelKeys: vi.fn((configuredModel?: string) => configuredModel ? [configuredModel] : [
-    "anthropic-cc/claude-haiku-4-5",
     "openai-codex/gpt-5.4-mini",
+    "anthropic-cc/claude-haiku-4-5",
     "xiaomi/mimo-v2.5-pro",
   ]),
 }));
