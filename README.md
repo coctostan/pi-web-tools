@@ -330,10 +330,22 @@ get_search_content({ responseId: "xyz789", url: "https://vitest.dev/api/" })
 
 The package reads config from `~/.pi/web-tools.json` and hot-reloads it every 30 seconds.
 
+To choose the model used by `fetch_content({ prompt })`, add `filterModel` to that file using `provider/model-id` format:
+
+```json
+{
+  "filterModel": "openai-codex/gpt-5.4-mini"
+}
+```
+
+You can point pi-web-tools at another config file with `PI_WEB_TOOLS_CONFIG=/path/to/web-tools.json`. If `filterModel` is omitted or malformed, pi-web-tools treats it as unset and uses auto-detection.
+
 ### Full config example
+
+```json
 {
   "exaApiKey": "your-exa-key",
-  "filterModel": "anthropic-cc/claude-haiku-4-5",
+  "filterModel": "openai-codex/gpt-5.4-mini",
   "cacheTTLMinutes": 1440,
   "github": {
     "maxRepoSizeMB": 350,

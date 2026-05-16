@@ -1,61 +1,17 @@
 {
   "version": 1,
-  "activeIssue": "041-make-the-summarization-model-configurabl",
-  "workflow": "feature",
-  "phase": "done",
-  "phaseHistory": [
-    {
-      "from": "brainstorm",
-      "to": "spec",
-      "timestamp": 1778783679057
-    },
-    {
-      "from": "spec",
-      "to": "plan",
-      "timestamp": 1778783868487
-    },
-    {
-      "from": "plan",
-      "to": "implement",
-      "timestamp": 1778784306453
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1778786180639
-    },
-    {
-      "from": "verify",
-      "to": "code-review",
-      "timestamp": 1778786384723
-    },
-    {
-      "from": "code-review",
-      "to": "done",
-      "timestamp": 1778786668529
-    }
-  ],
+  "activeIssue": null,
+  "workflow": null,
+  "phase": null,
+  "phaseHistory": [],
   "planMode": null,
-  "planIteration": 2,
-  "currentTaskIndex": 5,
-  "completedTasks": [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6
-  ],
+  "planIteration": 0,
+  "currentTaskIndex": 0,
+  "completedTasks": [],
   "tddTaskState": null,
-  "doneActions": [
-    "generate-docs",
-    "write-changelog",
-    "capture-learnings",
-    "push-and-pr",
-    "close-issue"
-  ],
-  "doneChecklistShown": true,
+  "doneActions": [],
+  "doneChecklistShown": false,
   "megaEnabled": true,
-  "branchName": "feat/041-make-the-summarization-model-configurabl",
-  "baseBranch": "main"
+  "branchName": null,
+  "baseBranch": null
 }
