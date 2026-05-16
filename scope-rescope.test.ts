@@ -40,8 +40,8 @@ describe("npm scope rescope", () => {
     expect(pkg.peerDependencies["@sinclair/typebox"]).toBeUndefined();
   });
 
-  it("package.json version bumped to 4.1.0", () => {
+  it("package.json version bumped to 4.1.1", () => {
     const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-    expect(pkg.version).toBe("4.1.0");
+    expect(pkg.version).toBe("4.1.1");
   });
 });

@@ -125,10 +125,10 @@ function handleSessionShutdown(_event?: SessionShutdownEvent, _ctx?: ExtensionCo
 // Tool parameter schemas
 // ---------------------------------------------------------------------------
 
-const WebSearchParams = Type.Object({ query: Type.Optional(Type.String({ description: "Single search query" })), queries: Type.Optional(Type.Array(Type.String(), { description: "Multiple queries (batch)" })), numResults: Type.Optional(Type.Integer({ minimum: 1, maximum: 20, description: "Results per query (default: 5, max: 20)" })), type: Type.Optional(Type.Union([Type.Literal("auto"), Type.Literal("instant"), Type.Literal("deep")], { description: 'Search type: "auto" (default, highest quality), "instant" (sub-150ms), "deep" (comprehensive research)' })), category: Type.Optional(Type.Union([Type.Literal("company"), Type.Literal("research paper"), Type.Literal("news"), Type.Literal("tweet"), Type.Literal("people"), Type.Literal("personal site"), Type.Literal("financial report"), Type.Literal("pdf")], { description: "Filter by content category" })), includeDomains: Type.Optional(Type.Array(Type.String(), { description: 'Only include these domains (e.g. ["github.com"])' })), excludeDomains: Type.Optional(Type.Array(Type.String(), { description: 'Exclude these domains (e.g. ["pinterest.com"])' })), detail: Type.Optional(Type.Union([Type.Literal("summary"), Type.Literal("highlights")], { description: 'Detail level: "summary" (default) or "highlights"' })), freshness: Type.Optional(Type.Union([Type.Literal("realtime"), Type.Literal("day"), Type.Literal("week"), Type.Literal("any")], { description: 'Content freshness: "realtime" (last 1 hour), "day" (24h), "week" (168h), "any" (default, no filter)' })), similarUrl: Type.Optional(Type.String({ description: "Find pages similar to this URL (alternative to query)" })) });
-const FetchContentParams = Type.Object({ url: Type.Optional(Type.String({ description: "Single URL to fetch" })), urls: Type.Optional(Type.Array(Type.String(), { description: "Multiple URLs (parallel)" })), forceClone: Type.Optional(Type.Boolean({ description: "Force cloning large GitHub repos" })), prompt: Type.Optional(Type.String({ description: "Question to answer from the fetched content. When provided, content is filtered through a cheap model and only the focused answer is returned (~200-1000 chars instead of full page)." })), noCache: Type.Optional(Type.Boolean({ description: "Skip cache and fetch fresh content. The fresh result still updates the cache." })) });
-const GetSearchContentParams = Type.Object({ responseId: Type.String({ description: "Response ID from web_search or fetch_content" }), query: Type.Optional(Type.String({ description: "Get content for this query" })), queryIndex: Type.Optional(Type.Number({ description: "Get content for query at index" })), url: Type.Optional(Type.String({ description: "Get content for this URL" })), urlIndex: Type.Optional(Type.Number({ description: "Get content for URL at index" })), maxChars: Type.Optional(Type.Number({ description: "Maximum characters to return (default: 30000, max: 100000)" })) });
-const CodeSearchParams = Type.Object({ query: Type.String({ description: "Describe what code you need" }), tokensNum: Type.Optional(Type.Number({ description: "Response size in tokens (default: auto, range: 50-100000)" })) });
+const WebSearchParams = Type.Object({ query: Type.Optional(Type.String({ description: "Search query" })), queries: Type.Optional(Type.Array(Type.String(), { description: "Batch search queries" })), numResults: Type.Optional(Type.Integer({ minimum: 1, maximum: 20, description: "Results per query" })), type: Type.Optional(Type.Union([Type.Literal("auto"), Type.Literal("instant"), Type.Literal("deep")], { description: "Search type" })), category: Type.Optional(Type.Union([Type.Literal("company"), Type.Literal("research paper"), Type.Literal("news"), Type.Literal("tweet"), Type.Literal("people"), Type.Literal("personal site"), Type.Literal("financial report"), Type.Literal("pdf")], { description: "Content category" })), includeDomains: Type.Optional(Type.Array(Type.String(), { description: "Domains to include" })), excludeDomains: Type.Optional(Type.Array(Type.String(), { description: "Domains to exclude" })), detail: Type.Optional(Type.Union([Type.Literal("summary"), Type.Literal("highlights")], { description: "Result detail level" })), freshness: Type.Optional(Type.Union([Type.Literal("realtime"), Type.Literal("day"), Type.Literal("week"), Type.Literal("any")], { description: 'Content freshness; "realtime" means last 1 hour' })), similarUrl: Type.Optional(Type.String({ description: "Find similar pages" })) });
+const FetchContentParams = Type.Object({ url: Type.Optional(Type.String({ description: "URL to fetch" })), urls: Type.Optional(Type.Array(Type.String(), { description: "URLs to fetch" })), forceClone: Type.Optional(Type.Boolean({ description: "Force GitHub repository cloning" })), prompt: Type.Optional(Type.String({ description: "Focused extraction prompt" })), noCache: Type.Optional(Type.Boolean({ description: "Bypass cached prompt results" })) });
+const GetSearchContentParams = Type.Object({ responseId: Type.String({ description: "Stored result ID" }), query: Type.Optional(Type.String({ description: "Query to retrieve" })), queryIndex: Type.Optional(Type.Number({ description: "Query index" })), url: Type.Optional(Type.String({ description: "URL to retrieve" })), urlIndex: Type.Optional(Type.Number({ description: "URL index" })), maxChars: Type.Optional(Type.Number({ description: "Maximum characters to return" })) });
+const CodeSearchParams = Type.Object({ query: Type.String({ description: "Code example request" }), tokensNum: Type.Optional(Type.Number({ description: "Response token budget" })) });
 
 // ---------------------------------------------------------------------------
 // Extension entry point
@@ -185,8 +185,7 @@ export default function (pi: ExtensionAPI) {
     pi.registerTool({
     name: "web_search",
     label: "Web Search",
-    description:
-      "Search the web for pages matching a query. Returns summaries by default (~1 line per result). Use `detail: \"highlights\"` for longer excerpts. Use `fetch_content` to read a page in full. Supports batch searching with multiple queries.",
+    description: "Search the web and return summarized source results.",
     parameters: WebSearchParams,
     prepareArguments: (raw) => normalizeWebSearchInput(raw as any) as any,
 
@@ -438,8 +437,7 @@ export default function (pi: ExtensionAPI) {
     pi.registerTool({
     name: "fetch_content",
     label: "Fetch Content",
-    description:
-      "Fetch URL(s) and extract readable content as markdown. Supports GitHub repository contents (clone + tree). Content is stored and can be retrieved with get_search_content if truncated.\n\nFor focused answers, use the `prompt` parameter with a specific question — the content will be filtered through a cheap model and only the relevant answer returned (~200-1000 chars instead of full page content).\n\nRaw fetches (without `prompt`) return a preview + file path. Use `read` to explore the full content selectively.",
+    description: "Fetch readable content from URL(s); use prompt for focused extraction.",
     parameters: FetchContentParams,
     prepareArguments: (raw) => normalizeFetchContentInput(raw as any) as any,
 
@@ -840,8 +838,7 @@ export default function (pi: ExtensionAPI) {
     pi.registerTool({
       name: "code_search",
       label: "Code Search",
-      description:
-        "Search GitHub repos, documentation, and Stack Overflow for working code examples. Use for framework usage, API syntax, library patterns, and setup recipes. Returns formatted code snippets, not web pages.",
+      description: "Search for working code examples from GitHub, docs, and Stack Overflow.",
       parameters: CodeSearchParams,
       prepareArguments: (raw) => normalizeCodeSearchInput(raw as any) as any,
 
@@ -963,8 +960,7 @@ export default function (pi: ExtensionAPI) {
     pi.registerTool({
     name: "get_search_content",
     label: "Get Content",
-    description:
-      "Retrieve full content from a previous web_search, code_search, or fetch_content result.",
+    description: "Retrieve stored full content from a previous search or fetch result.",
     parameters: GetSearchContentParams,
     prepareArguments: (raw) => normalizeGetSearchContentInput(raw as any) as any,
 

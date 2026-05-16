@@ -453,7 +453,7 @@ describe("web_search detail passthrough", () => {
 
     const freshnessSchema = webSearchTool.parameters.properties.freshness;
     expect(freshnessSchema).toBeDefined();
-    expect(freshnessSchema.description).toContain('"realtime" (last 1 hour)');
+    expect(freshnessSchema.description).toContain('"realtime" means last 1 hour');
     expect(freshnessSchema.description).not.toContain('"realtime" (0h)');
   });
 
