@@ -1,27 +1,21 @@
-# Install Footprint & Fixture-Read Evidence
+# Install Footprint & Init-Time Safety Evidence
+
+Issue: 035-replace-unmaintained-pdf-parse-with-unpd
+Captured: 2026-05-28
 
 ## npm pack --dry-run
 
 ```
-npm notice 1.8kB package.json
-npm notice 2.2kB research-cache.ts
-npm notice 2.3kB retry.ts
-npm notice 1.9kB session-results-store.ts
-npm notice 4.0kB smart-search.ts
-npm notice 4.6kB storage.ts
-npm notice 5.9kB tool-params.ts
-npm notice 696B truncation.ts
-npm notice 182B turndown.d.ts
-npm notice Tarball Details
 npm notice name: @coctostan/pi-exa-gh-web-tools
-npm notice version: 4.1.0
-npm notice filename: coctostan-pi-exa-gh-web-tools-4.1.0.tgz
-npm notice package size: 62.2 kB
-npm notice unpacked size: 276.5 kB
-npm notice shasum: db25b6f8fb924a35dde87758cc539a706b7e3ac0
-npm notice integrity: sha512-tkeGXZ0oY4vyb[...]Pt0y2rmlZzxCA==
-npm notice total files: 59
+npm notice version: 4.1.1
+npm notice filename: coctostan-pi-exa-gh-web-tools-4.1.1.tgz
+npm notice package size: 70.3 kB
+npm notice unpacked size: 304.7 kB
+npm notice shasum: 8824f2ba66df5b83ddb092b2103ba62d40c10971
+npm notice total files: 65
 ```
+
+Project tarball is 70.3 kB (304.7 kB unpacked) — runtime deps are not bundled, so the tarball delta from the pdf-parse → unpdf swap is negligible at the publish boundary.
 
 ## node_modules/unpdf size
 
@@ -29,23 +23,25 @@ npm notice total files: 59
 2.2M	node_modules/unpdf
 ```
 
-For comparison, `pdf-parse@2.4.5` previously installed ~5–6MB (pdfjs-dist + fixtures); the swap is a net install-footprint win.
+unpdf ships a serverless build of Mozilla pdf.js with zero transitive dependencies. For reference, the unmaintained `pdf-parse@2.4.5` (previously installed) bundled an older fork of pdf.js plus a CJS shim, sample fixtures, and a `bin/cli.mjs` — comparable order of magnitude but with maintenance / supply-chain wins.
 
 ## unpdf import smoke test
 
 ```
+$ node --input-type=module -e "import('unpdf').then(m => console.log('imported keys:', Object.keys(m).sort().join(', '))).catch(e => { console.error('IMPORT FAILED', e); process.exit(1); })"
 imported keys: configureUnPDF, createIsomorphicCanvasFactory, definePDFJSModule, extractImages, extractLinks, extractText, extractTextItems, getDocumentProxy, getMeta, getResolvedPDFJS, renderPageAsImage, resolvePDFJSImport
 ```
 
-Both `extractText` and `getDocumentProxy` are present. ESM import succeeded with no `ENOENT`/fixture-read failure.
+Clean ESM import. Both symbols used by `extract.ts` are present (`extractText`, `getDocumentProxy`). No `ENOENT`, no fixture-read failures at module load — confirming no init-time `./test/data/*.pdf` access of the kind reported for `pdf-parse`.
 
 ## fixture-read scan
 
 ```
+$ grep -RIn "test/data" node_modules/unpdf
 no fixture refs
 ```
 
-`grep -RIn "test/data" node_modules/unpdf` returned no matches — `unpdf` does not reference a `test/data` path at runtime (this was the original `pdf-parse` init-time-fixture bug).
+No source references to a `test/data` fixture path anywhere under `node_modules/unpdf`. The latent init-time fixture read that motivated this swap is structurally impossible with unpdf.
 
 ---
 

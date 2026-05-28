@@ -2,16 +2,54 @@
   "version": 1,
   "activeIssue": "035-replace-unmaintained-pdf-parse-with-unpd",
   "workflow": "bugfix",
-  "phase": "reproduce",
-  "phaseHistory": [],
+  "phase": "done",
+  "phaseHistory": [
+    {
+      "from": "reproduce",
+      "to": "diagnose",
+      "timestamp": 1779982310815
+    },
+    {
+      "from": "diagnose",
+      "to": "plan",
+      "timestamp": 1779982377953
+    },
+    {
+      "from": "plan",
+      "to": "implement",
+      "timestamp": 1779984682276
+    },
+    {
+      "from": "implement",
+      "to": "verify",
+      "timestamp": 1779997281087
+    },
+    {
+      "from": "verify",
+      "to": "done",
+      "timestamp": 1779997361057
+    }
+  ],
   "planMode": null,
-  "planIteration": 0,
-  "currentTaskIndex": 0,
-  "completedTasks": [],
+  "planIteration": 1,
+  "currentTaskIndex": 4,
+  "completedTasks": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
   "tddTaskState": null,
-  "doneActions": [],
-  "doneChecklistShown": false,
+  "doneActions": [
+    "generate-bugfix-summary",
+    "write-changelog",
+    "capture-learnings",
+    "push-and-pr",
+    "close-issue"
+  ],
+  "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "feat/042-enhance-tool-ui-presentation",
+  "branchName": "fix/035-replace-unmaintained-pdf-parse-with-unpd",
   "baseBranch": "main"
 }

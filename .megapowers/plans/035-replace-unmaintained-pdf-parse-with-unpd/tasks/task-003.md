@@ -8,13 +8,13 @@ no_test: false
 files_to_modify:
   - package.json
   - package-lock.json
-files_to_create: []
+files_to_create:
+  - dependencies.test.ts
 ---
 
 **Files:**
 - Modify: `package.json`
 - Modify: `package-lock.json`
-- Test: `package.test.ts` (new — but kept here under modify because it's tiny; if a test file doesn't exist, create it under the project root next to other `*.test.ts` files)
 - Create: `dependencies.test.ts`
 
 **Step 1 — Write the failing test**
@@ -59,11 +59,11 @@ Run from the repo root:
 npm uninstall pdf-parse
 ```
 
-This removes `"pdf-parse"` from `package.json` `dependencies` and removes the `node_modules/pdf-parse` entry from `package-lock.json`.
+Removes `"pdf-parse"` from `package.json` `dependencies` and the `node_modules/pdf-parse` entry from `package-lock.json`.
 
-Manually verify after the command:
+Manually verify:
 - `package.json` `dependencies` no longer contains `"pdf-parse"`.
-- `package-lock.json` has no `"node_modules/pdf-parse"` entry (search for `pdf-parse` — only matches should be transitive `<none>` or absent).
+- `package-lock.json` has no `"node_modules/pdf-parse"` entry.
 - `unpdf` is still present in `dependencies` (added by Task 1).
 
 **Step 4 — Run test, verify it passes**
@@ -80,4 +80,4 @@ Expected: all 28 tests passing (26 prior + 2 new dependency-hygiene tests).
 
 Also run: `npm ls pdf-parse`
 
-Expected: `(empty)` or exit code 1 with no `pdf-parse` in the tree — confirms removal at the install level.
+Expected: `(empty)` or exit code 1 with no `pdf-parse` in the tree.

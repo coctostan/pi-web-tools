@@ -122,7 +122,7 @@ it("returns error for corrupt PDF without binary garbage", async () => {
 });
 ```
 
-Replace the **oversized PDF** test (`extract.test.ts:245-259`) with the same body it already has — the size guard runs before any library call, so it stays library-agnostic. No edit required to its assertions; just make sure `vi.mocked(extractText)` is **not** called:
+Replace the **oversized PDF** test (`extract.test.ts:245-259`) — size guard runs before library; assert `extractText` not called:
 
 ```ts
 it("rejects PDF that exceeds MAX_SIZE", async () => {
@@ -131,7 +131,7 @@ it("rejects PDF that exceeds MAX_SIZE", async () => {
     status: 200,
     headers: new Headers({
       "content-type": "application/pdf",
-      "content-length": String(10 * 1024 * 1024), // 10MB, over 5MB limit
+      "content-length": String(10 * 1024 * 1024),
     }),
     arrayBuffer: async () => new ArrayBuffer(0),
     text: async () => "",
@@ -143,7 +143,7 @@ it("rejects PDF that exceeds MAX_SIZE", async () => {
 });
 ```
 
-Also reset the unpdf mocks in `beforeEach` next to the existing `mockFetch.mockReset()`:
+Reset unpdf mocks in `beforeEach`:
 
 ```ts
 beforeEach(() => {
@@ -151,7 +151,6 @@ beforeEach(() => {
   mockFetch.mockReset();
   vi.mocked(extractText).mockReset();
   vi.mocked(getDocumentProxy).mockReset();
-  // Re-install default getDocumentProxy shim that just echoes the buffer.
   vi.mocked(getDocumentProxy).mockImplementation(async (buf: Uint8Array) => ({
     __mockPdf: true,
     byteLength: buf.byteLength,
@@ -163,11 +162,7 @@ beforeEach(() => {
 
 Run: `npx vitest run extract.test.ts`
 
-Expected: FAIL. Concretely:
-- `"extracts text from PDF content-type"` → `AssertionError: expected "spy" to be called 1 times, but got 0 times` (because `extract.ts` still imports `pdf-parse`, so `vi.mocked(getDocumentProxy)` is never invoked).
-- `"returns error for corrupt PDF without binary garbage"` → may incidentally pass (pdf-parse will reject the garbage buffer with its own error), but at minimum the first PDF test fails, which fails the suite.
-
-If the runner emits a different error string, paste that exact text into this step before continuing.
+Expected: FAIL — `AssertionError: expected "spy" to be called 1 times, but got 0 times` for `"extracts text from PDF content-type"` (because `extract.ts` still imports `pdf-parse`, so `vi.mocked(getDocumentProxy)` is never invoked).
 
 **Step 3 — Write minimal implementation**
 
@@ -212,7 +207,7 @@ Replace the PDF block (current `extract.ts:109-136`) with:
 Notes preserved across the swap:
 - `Failed to extract text from PDF: ${msg}` wrapper preserves the `result.error.toContain("PDF")` assertion.
 - `"Failed to extract text from PDF: no readable text found"` empty-content branch unchanged.
-- Pre-library size guards (`content-length` and post-arrayBuffer) unchanged.
+- Pre-library size guards unchanged.
 - `parser?.destroy()` finally block removed — unpdf has no destroy lifecycle.
 
 **Step 4 — Run test, verify it passes**
@@ -232,7 +227,6 @@ Expected: all 26 tests passing.
 **Files:**
 - Modify: `package.json`
 - Modify: `package-lock.json`
-- Test: `package.test.ts` (new — but kept here under modify because it's tiny; if a test file doesn't exist, create it under the project root next to other `*.test.ts` files)
 - Create: `dependencies.test.ts`
 
 **Step 1 — Write the failing test**
@@ -277,11 +271,11 @@ Run from the repo root:
 npm uninstall pdf-parse
 ```
 
-This removes `"pdf-parse"` from `package.json` `dependencies` and removes the `node_modules/pdf-parse` entry from `package-lock.json`.
+Removes `"pdf-parse"` from `package.json` `dependencies` and the `node_modules/pdf-parse` entry from `package-lock.json`.
 
-Manually verify after the command:
+Manually verify:
 - `package.json` `dependencies` no longer contains `"pdf-parse"`.
-- `package-lock.json` has no `"node_modules/pdf-parse"` entry (search for `pdf-parse` — only matches should be transitive `<none>` or absent).
+- `package-lock.json` has no `"node_modules/pdf-parse"` entry.
 - `unpdf` is still present in `dependencies` (added by Task 1).
 
 **Step 4 — Run test, verify it passes**
@@ -298,7 +292,7 @@ Expected: all 28 tests passing (26 prior + 2 new dependency-hygiene tests).
 
 Also run: `npm ls pdf-parse`
 
-Expected: `(empty)` or exit code 1 with no `pdf-parse` in the tree — confirms removal at the install level.
+Expected: `(empty)` or exit code 1 with no `pdf-parse` in the tree.
 
 ### Task 4: Update README.md to reference unpdf [no-test] [depends: 3]
 
@@ -309,7 +303,7 @@ Expected: `(empty)` or exit code 1 with no `pdf-parse` in the tree — confirms 
 
 **Step 1 — Make the change**
 
-Use `grep` to confirm the current wording, then `edit` to replace it.
+Use `grep` to confirm wording, then `edit` to replace.
 
 Current (`README.md:283`):
 
@@ -323,7 +317,7 @@ Replace with:
 PDF text is extracted with [`unpdf`](https://github.com/unjs/unpdf) (a serverless build of Mozilla `pdf.js`). Corrupt, encrypted, empty, or oversized PDFs return a clear error.
 ```
 
-If there are any other casual mentions of `pdf-parse` in `README.md` found by `grep -n "pdf-parse" README.md`, replace them with `unpdf` in the same edit.
+If any other `pdf-parse` mentions exist via `grep -n "pdf-parse" README.md`, replace them with `unpdf` in the same edit.
 
 **Step 2 — Verify**
 
@@ -333,55 +327,53 @@ Expected: no matches.
 
 Run: `grep -n "unpdf" README.md`
 
-Expected: at least one match — the replaced line.
+Expected: at least one match.
 
 ### Task 5: Record install footprint and verify no init-time fixture reads [no-test] [depends: 3]
 
-**Justification:** Verification/evidence task for acceptance criteria #5 (install size goes down) and #4 (no init-time fixture reads). The evidence belongs to the plan artifact, not to the production source tree.
+**Justification:** Verification/evidence task for acceptance criteria #5 (install size goes down) and #4 (no init-time fixture reads). Evidence belongs to the plan artifact, not the production source tree.
 
 **Files:**
 - Create: `.megapowers/plans/035-replace-unmaintained-pdf-parse-with-unpd/install-footprint.md`
 
 **Step 1 — Make the change**
 
-Run the three commands below and capture their output into the new evidence file:
+Run the four commands and capture output verbatim into the new file under the headings listed below.
 
 ```
 npm pack --dry-run 2>&1 | tail -20
 ```
 
-Captures the unpacked tarball size of the project itself (should not materially change — `pdf-parse` and `unpdf` are runtime deps, not bundled into the package tarball; this validates the project's own publish size).
+Captures unpacked tarball size of project.
 
 ```
 du -sh node_modules/unpdf
 ```
 
-Captures the installed footprint of the new library for comparison against the issue's expectation that `pdf-parse` removal is a net win.
+Captures installed footprint of new library.
 
 ```
 node --input-type=module -e "import('unpdf').then(m => console.log('imported keys:', Object.keys(m).sort().join(', '))).catch(e => { console.error('IMPORT FAILED', e); process.exit(1); })"
 ```
 
-Captures that `unpdf` can be imported in an ESM context with no `ENOENT`/fixture-read failures even when CWD lacks a `./test/data/` directory. (Run this from a temp directory if you want to be paranoid: `cd $(mktemp -d) && cp -r <repo>/node_modules .` — optional.)
-
-Also run:
+Confirms `unpdf` imports cleanly with no `ENOENT`/fixture-read failures.
 
 ```
 grep -RIn "test/data" node_modules/unpdf || echo "no fixture refs"
 ```
 
-Confirms `unpdf` does not reference a `test/data` path at runtime.
+Confirms no `test/data` runtime references.
 
-Write all four command outputs verbatim into `install-footprint.md` under headings:
+Write outputs into `install-footprint.md` under headings:
 - `## npm pack --dry-run`
 - `## node_modules/unpdf size`
 - `## unpdf import smoke test`
 - `## fixture-read scan`
 
-End the file with a one-line summary: "Acceptance criteria #4 (no init-time fixture reads) and #5 (install footprint recorded) satisfied."
+End with: "Acceptance criteria #4 (no init-time fixture reads) and #5 (install footprint recorded) satisfied."
 
 **Step 2 — Verify**
 
 Run: `cat .megapowers/plans/035-replace-unmaintained-pdf-parse-with-unpd/install-footprint.md`
 
-Expected: all four sections present and populated; the import smoke test prints a non-empty `imported keys:` line containing at least `extractText` and `getDocumentProxy`; the fixture-read scan prints either `no fixture refs` or a list reviewed and confirmed to be only inside unpdf's own (non-loaded) source-map / docs, not anything `import`-time.
+Expected: all four sections present and populated; import smoke prints a non-empty `imported keys:` containing at least `extractText` and `getDocumentProxy`; fixture-read scan prints `no fixture refs` or reviewed-and-confirmed-benign matches.
