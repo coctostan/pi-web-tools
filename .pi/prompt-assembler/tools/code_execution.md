@@ -1,0 +1,1 @@
+Run Python orchestration for repo-wide or batched analysis using local tool wrappers. Use ptc.list_helpers() and ptc.help(name) for available helpers. Direct wrappers include read, grep, find, ls, and glob.

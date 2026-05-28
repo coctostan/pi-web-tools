@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Changed
+- Route all four pi-web-tools renderers (`web_search`, `fetch_content`, `code_search`, `get_search_content`) through a shared `render-helpers.ts` module: unified `[marker] [label] [counts]` collapsed status line with single tone vocabulary (`✓`/`!`/`✗` mapping to `success`/`warning`/`error` theme roles), width-safe rendering via `WidthSafeLines` + `truncateToWidth` (ANSI- and CJK-aware), and per-item expanded views built from existing `details`/`ptcValue`. No executor, `content[].text`, or `ptcValue` shape changes. (#042)
 - Make `fetch_content({ prompt })` use configurable `filterModel` values in `provider/model-id` format while preserving auto-detection, raw-content fallback, and cache separation by effective model. (#041)
 
 ### Added
@@ -13,6 +14,7 @@
 
 - Report cache admin read/write failures for `/web-tools stats`, `clear-cache`, and `purge-expired` instead of showing false-success output for corrupt, unreadable, or invalid cache files. (#034)
 - Prefer `openai-codex/gpt-5.4-mini` as the first auto-detected `fetch_content({ prompt })` filter model before `anthropic-cc/claude-haiku-4-5`, avoiding empty filter output observed with the anthropic-cc path. (#042)
+- Fix `get_search_content` `renderResult` always rendering `success` tone even when `details.error` was set; it now uses the shared `errorView` path with the `error` theme role. (#042)
 - Refresh prompt filter auto-detection to try available configured defaults in order, and align prompt-cache lookups with that fallback order. (#031)
 - Preserve `get_search_content` response IDs across `/compact` with a session-id-scoped disk-backed result snapshot and compaction lifecycle hooks. (#040)
 

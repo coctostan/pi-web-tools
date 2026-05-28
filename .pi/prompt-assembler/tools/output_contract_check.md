@@ -1,0 +1,1 @@
+Check explicit JSON output contracts for schema/count consistency.

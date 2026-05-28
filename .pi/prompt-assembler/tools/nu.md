@@ -1,0 +1,1 @@
+Run Nushell for structured data, filesystem metadata, and system inspection.

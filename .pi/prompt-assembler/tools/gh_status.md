@@ -1,0 +1,1 @@
+Query GitHub status for monitored repositories. Returns PR status, CI results, assigned issues. Use to check if your push/PR succeeded, investigate CI failures, or see what needs attention.
