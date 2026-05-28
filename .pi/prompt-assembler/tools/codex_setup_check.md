@@ -1,0 +1,1 @@
+Check Codex CLI readiness, auth, app-server support, and review-gate state.

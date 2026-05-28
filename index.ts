@@ -1,5 +1,11 @@
 import type { ExtensionAPI, ExtensionContext, SessionShutdownEvent, SessionStartEvent } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
+import {
+  renderWebSearchResult,
+  renderFetchContentResult,
+  renderCodeSearchResult,
+  renderGetContentResult,
+  renderCallHeader,
+} from "./render-helpers.js";
 import { Type } from "typebox";
 import { complete } from "@earendil-works/pi-ai";
 import pLimit from "p-limit";
@@ -373,59 +379,14 @@ export default function (pi: ExtensionAPI) {
     },
 
     renderCall(args, theme) {
-      let text = theme.fg("toolTitle", theme.bold("search "));
-      if (args.similarUrl) {
-        const truncated = args.similarUrl.length > 60 ? args.similarUrl.slice(0, 60) + "…" : args.similarUrl;
-        text += theme.fg("accent", `similar: ${truncated}`);
-      } else {
-        const queryText = args.queries
-          ? args.queries.join(", ")
-          : args.query || "";
-        const truncated =
-          queryText.length > 60 ? queryText.slice(0, 60) + "…" : queryText;
-        text += theme.fg("accent", `"${truncated}"`);
-      }
-      return new Text(text, 0, 0);
+      const arg = args.similarUrl
+        ? `similar: ${args.similarUrl}`
+        : args.queries ? args.queries.join(", ") : (args.query || "");
+      return renderCallHeader(theme, "search ", arg ? `"${arg}"` : "");
     },
 
-    renderResult(result, { expanded, isPartial }, theme) {
-      if ((result as any).isError) {
-        const errText = result.content[0];
-        const msg = errText?.type === "text" ? errText.text : "Error";
-        return new Text(theme.fg("error", msg), 0, 0);
-      }
-
-      if (isPartial) {
-        return new Text(theme.fg("warning", "Searching..."), 0, 0);
-      }
-
-      const details = result.details as {
-        successfulQueries?: number;
-        queryCount?: number;
-        totalResults?: number;
-      } | undefined;
-
-      const successCount = details?.successfulQueries ?? 0;
-      const totalCount = details?.queryCount ?? 0;
-      const resultCount = details?.totalResults ?? 0;
-
-      let text = theme.fg(
-        "success",
-        `${successCount}/${totalCount} queries succeeded, ${resultCount} sources`
-      );
-
-      if (expanded) {
-        const content = result.content[0];
-        if (content?.type === "text") {
-          const preview = content.text.slice(0, 500);
-          text += "\n" + theme.fg("dim", preview);
-          if (content.text.length > 500) {
-            text += theme.fg("muted", "...");
-          }
-        }
-      }
-
-      return new Text(text, 0, 0);
+    renderResult(result, options, theme) {
+      return renderWebSearchResult(result as any, options, theme as any);
     },
     });
   }
@@ -775,58 +736,12 @@ export default function (pi: ExtensionAPI) {
     },
 
     renderCall(args, theme) {
-      let text = theme.fg("toolTitle", theme.bold("fetch "));
-      if (args.urls && args.urls.length > 0) {
-        text += theme.fg("accent", `${args.urls.length} URLs`);
-      } else if (args.url) {
-        const truncated =
-          args.url.length > 60 ? args.url.slice(0, 60) + "…" : args.url;
-        text += theme.fg("accent", truncated);
-      }
-      return new Text(text, 0, 0);
+      const arg = args.urls && args.urls.length > 0 ? `${args.urls.length} URLs` : (args.url || "");
+      return renderCallHeader(theme, "fetch ", arg);
     },
 
-    renderResult(result, { expanded: _expanded, isPartial }, theme) {
-      if ((result as any).isError) {
-        const errText = result.content[0];
-        const msg = errText?.type === "text" ? errText.text : "Error";
-        return new Text(theme.fg("error", msg), 0, 0);
-      }
-
-      if (isPartial) {
-        return new Text(theme.fg("warning", "Fetching..."), 0, 0);
-      }
-
-      const details = result.details as {
-        title?: string;
-        charCount?: number;
-        truncated?: boolean;
-        successCount?: number;
-        totalCount?: number;
-      } | undefined;
-
-      // Multiple URLs
-      if (details?.totalCount !== undefined) {
-        const text = theme.fg(
-          "success",
-          `${details.successCount}/${details.totalCount} fetched`
-        );
-        return new Text(text, 0, 0);
-      }
-
-      // Single URL
-      let text = "";
-      if (details?.title) {
-        text += theme.fg("success", details.title);
-      }
-      if (details?.charCount !== undefined) {
-        text += theme.fg("dim", ` (${details.charCount} chars)`);
-      }
-      if (details?.truncated) {
-        text += theme.fg("warning", " [truncated]");
-      }
-
-      return new Text(text || theme.fg("success", "Done"), 0, 0);
+    renderResult(result, options, theme) {
+      return renderFetchContentResult(result as any, options, theme as any);
     },
     });
   }
@@ -905,50 +820,12 @@ export default function (pi: ExtensionAPI) {
       },
 
       renderCall(args, theme) {
-        let text = theme.fg("toolTitle", theme.bold("code_search "));
-        const queryText = typeof args.query === "string" ? args.query : "";
-        const truncated = queryText.length > 60 ? queryText.slice(0, 60) + "…" : queryText;
-        text += theme.fg("accent", `"${truncated}"`);
-        return new Text(text, 0, 0);
+        const q = typeof args.query === "string" ? args.query : "";
+        return renderCallHeader(theme, "code_search ", q ? `"${q}"` : "");
       },
 
-      renderResult(result, { expanded, isPartial }, theme) {
-        if ((result as any).isError) {
-          const errText = result.content[0];
-          const msg = errText?.type === "text" ? errText.text : "Error";
-          return new Text(theme.fg("error", msg), 0, 0);
-        }
-
-        if (isPartial) {
-          return new Text(theme.fg("warning", "Searching code..."), 0, 0);
-        }
-
-        const details = result.details as {
-          charCount?: number;
-          truncated?: boolean;
-          query?: string;
-        } | undefined;
-
-        let text = theme.fg("success", details?.query ?? "Done");
-        if (details?.charCount !== undefined) {
-          text += theme.fg("dim", ` (${details.charCount} chars)`);
-        }
-        if (details?.truncated) {
-          text += theme.fg("warning", " [truncated]");
-        }
-
-        if (expanded) {
-          const content = result.content[0];
-          if (content?.type === "text") {
-            const preview = content.text.slice(0, 500);
-            text += "\n" + theme.fg("dim", preview);
-            if (content.text.length > 500) {
-              text += theme.fg("muted", "...");
-            }
-          }
-        }
-
-        return new Text(text, 0, 0);
+      renderResult(result, options, theme) {
+        return renderCodeSearchResult(result as any, options, theme as any);
       },
     });
   }
@@ -1125,62 +1002,12 @@ export default function (pi: ExtensionAPI) {
     },
 
     renderCall(args, theme) {
-      let text = theme.fg("toolTitle", theme.bold("get_content "));
       const target = args.query ?? args.url ?? `#${args.queryIndex ?? args.urlIndex ?? ""}`;
-      const truncated = target.length > 40 ? target.slice(0, 40) + "…" : target;
-      text += theme.fg("accent", truncated);
-      return new Text(text, 0, 0);
+      return renderCallHeader(theme, "get_content ", target, 40);
     },
 
-    renderResult(result, { expanded, isPartial: _isPartial }, theme) {
-      if ((result as any).isError) {
-        const errText = result.content[0];
-        const msg = errText?.type === "text" ? errText.text : "Error";
-        return new Text(theme.fg("error", msg), 0, 0);
-      }
-
-      const details = result.details as {
-        type?: string;
-        query?: string;
-        title?: string;
-        charCount?: number;
-        resultCount?: number;
-        urlCount?: number;
-        queryCount?: number;
-      } | undefined;
-
-      let label = "";
-      let size = "";
-
-      if (details?.query) {
-        label = details.query;
-        size = details.resultCount !== undefined ? `${details.resultCount} results` : "";
-      } else if (details?.title) {
-        label = details.title;
-        size = details.charCount !== undefined ? `${details.charCount} chars` : "";
-      } else if (details?.urlCount !== undefined) {
-        label = `${details.urlCount} URLs`;
-      } else if (details?.queryCount !== undefined) {
-        label = `${details.queryCount} queries`;
-      }
-
-      let text = theme.fg("success", label);
-      if (size) {
-        text += theme.fg("dim", ` (${size})`);
-      }
-
-      if (expanded) {
-        const content = result.content[0];
-        if (content?.type === "text") {
-          const preview = content.text.slice(0, 300);
-          text += "\n" + theme.fg("dim", preview);
-          if (content.text.length > 300) {
-            text += theme.fg("muted", "...");
-          }
-        }
-      }
-
-      return new Text(text || theme.fg("success", "Done"), 0, 0);
+    renderResult(result, options, theme) {
+      return renderGetContentResult(result as any, options, theme as any);
     },
     });
   }

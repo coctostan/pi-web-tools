@@ -1,0 +1,1 @@
+Run subagent tasks in a loop while a condition command prints 'true' to continue (anything else stops). Supports single and chain modes. Supports model/thinking overrides like subagent. Defaults to agent 'worker' and the latest user message when agent/task are omitted. If conditionCommand is omitted, it is inferred from the task text or defaults to 'echo true'.

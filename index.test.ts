@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync as _readFileSyncForCancelCheck, mkdtempSync as _mkdtempCompact, rmSync as _rmSyncCompact, existsSync as _existsCompact } from "node:fs";
 import { tmpdir as _tmpdirCompact } from "node:os";
 import { join as _joinCompact } from "node:path";
+import { visibleWidth } from "@earendil-works/pi-tui";
 
 const state = vi.hoisted(() => ({
   extractContent: vi.fn(),
@@ -2060,5 +2061,32 @@ describe("index.ts shrinkage (#040 AC-BATCH-4)", () => {
     const src = _readFileSyncForCancelCheck("index.ts", "utf-8");
     const lineCount = src.endsWith("\n") ? src.split("\n").length - 1 : src.split("\n").length;
     expect(lineCount).toBeLessThan(1192);
+  });
+});
+
+// Stub theme: returns text unchanged; markers/counts still appear so the
+// assertions on "\u2713" / "2/2" and visibleWidth hold.
+const theme = { fg: (_c: string, s: string) => s, bold: (s: string) => s } as any;
+
+describe("web_search renderResult delegates to shared helper", () => {
+  it("renders a success status line with marker and counts", async () => {
+    const { webSearchTool } = await getWebSearchTool();
+    const result = {
+      content: [{ type: "text", text: "## Query: x\n..." }],
+      details: { successfulQueries: 2, queryCount: 2, totalResults: 5 },
+    };
+    const comp = webSearchTool.renderResult(result, { expanded: false, isPartial: false }, theme);
+    const lines = comp.render(80);
+    const text = lines.join("\n");
+    // Marker from the shared TONE_MARKER vocabulary, not legacy phrasing.
+    expect(text).toContain("\u2713");
+    expect(text).toContain("2/2");
+    for (const l of lines) expect(visibleWidth(l)).toBeLessThanOrEqual(80);
+  });
+
+  it("renderCall returns a width-safe header", async () => {
+    const { webSearchTool } = await getWebSearchTool();
+    const comp = webSearchTool.renderCall({ query: "z".repeat(200) }, theme);
+    for (const l of comp.render(40)) expect(visibleWidth(l)).toBeLessThanOrEqual(40);
   });
 });

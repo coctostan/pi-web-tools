@@ -1,0 +1,2749 @@
+{
+  "version": 1,
+  "tools": {
+    "read": {
+      "name": "read",
+      "description": "Read text files/images by path; text has LINE:HASH anchors, images return attachments.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "File path"
+          },
+          "offset": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Start line (1-indexed)"
+              },
+              {
+                "type": "string",
+                "description": "Start line (1-indexed)"
+              }
+            ]
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Max lines"
+              },
+              {
+                "type": "string",
+                "description": "Max lines"
+              }
+            ]
+          },
+          "symbol": {
+            "type": "string",
+            "description": "Symbol name to read"
+          },
+          "map": {
+            "type": "boolean",
+            "description": "Append structural map"
+          },
+          "bundle": {
+            "type": "string",
+            "const": "local",
+            "description": "Include same-file local support"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/index.ts",
+        "source": "local",
+        "scope": "user",
+        "origin": "top-level"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": true,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/read.md",
+      "providerDescriptionOverride": "Anchored file reading with ranges, symbol lookup, and structural maps.",
+      "stale": false
+    },
+    "bash": {
+      "name": "bash",
+      "description": "Run tests, builds, git, package managers, and external CLIs; do not use for repo file reading/searching/listing/editing (use read, grep, find, ls, edit, or write).",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "command"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "Test/build/git/pkg/external command; not repo file read/search/list/edit."
+          },
+          "timeout": {
+            "type": "number",
+            "description": "Timeout seconds"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/index.ts",
+        "source": "local",
+        "scope": "user",
+        "origin": "top-level"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": true,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/bash.md",
+      "providerDescriptionOverride": "Shell commands for tests/builds/git; not for file reading/editing/search.",
+      "stale": false
+    },
+    "edit": {
+      "name": "edit",
+      "description": "Edit existing text files using fresh LINE:HASH anchors from read, grep, ast_search, or write.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "File path"
+          },
+          "edits": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "set_line"
+                  ],
+                  "properties": {
+                    "set_line": {
+                      "type": "object",
+                      "required": [
+                        "anchor",
+                        "new_text"
+                      ],
+                      "properties": {
+                        "anchor": {
+                          "type": "string"
+                        },
+                        "new_text": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "replace_lines"
+                  ],
+                  "properties": {
+                    "replace_lines": {
+                      "type": "object",
+                      "required": [
+                        "start_anchor",
+                        "end_anchor",
+                        "new_text"
+                      ],
+                      "properties": {
+                        "start_anchor": {
+                          "type": "string"
+                        },
+                        "end_anchor": {
+                          "type": "string"
+                        },
+                        "new_text": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "insert_after"
+                  ],
+                  "properties": {
+                    "insert_after": {
+                      "type": "object",
+                      "required": [
+                        "anchor",
+                        "new_text"
+                      ],
+                      "properties": {
+                        "anchor": {
+                          "type": "string"
+                        },
+                        "new_text": {
+                          "type": "string"
+                        },
+                        "text": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "replace"
+                  ],
+                  "properties": {
+                    "replace": {
+                      "type": "object",
+                      "required": [
+                        "old_text",
+                        "new_text"
+                      ],
+                      "properties": {
+                        "old_text": {
+                          "type": "string"
+                        },
+                        "new_text": {
+                          "type": "string"
+                        },
+                        "all": {
+                          "type": "boolean"
+                        },
+                        "fuzzy": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "replace_symbol"
+                  ],
+                  "properties": {
+                    "replace_symbol": {
+                      "type": "object",
+                      "required": [
+                        "symbol",
+                        "new_body"
+                      ],
+                      "properties": {
+                        "symbol": {
+                          "type": "string"
+                        },
+                        "new_body": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "old_text",
+                    "new_text"
+                  ],
+                  "properties": {
+                    "old_text": {
+                      "type": "string"
+                    },
+                    "new_text": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": true,
+                  "description": "Do not use — Wrap as { replace: {old_text, new_text} }."
+                }
+              ]
+            },
+            "description": "Edit operations"
+          },
+          "postEditVerify": {
+            "type": "boolean",
+            "description": "Verify persisted content after write"
+          }
+        },
+        "additionalProperties": true
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/index.ts",
+        "source": "local",
+        "scope": "user",
+        "origin": "top-level"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": true,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/edit.md",
+      "providerDescriptionOverride": "Anchored file edits using LINE:HASH references; read first.",
+      "stale": false
+    },
+    "write": {
+      "name": "write",
+      "description": "Create or overwrite a file and return anchors.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "path",
+          "content"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "File path"
+          },
+          "content": {
+            "type": "string",
+            "description": "File content"
+          },
+          "map": {
+            "type": "boolean",
+            "description": "Append structural map"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/index.ts",
+        "source": "local",
+        "scope": "user",
+        "origin": "top-level"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/write.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "grep": {
+      "name": "grep",
+      "description": "Search file contents; non-summary results include LINE:HASH anchors for edits.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "pattern"
+        ],
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Pattern to search"
+          },
+          "path": {
+            "type": "string",
+            "description": "Search path"
+          },
+          "glob": {
+            "type": "string",
+            "description": "Glob filter"
+          },
+          "ignoreCase": {
+            "type": "boolean",
+            "description": "Ignore case"
+          },
+          "literal": {
+            "type": "boolean",
+            "description": "Treat pattern literally"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Context lines"
+              },
+              {
+                "type": "string",
+                "description": "Context lines"
+              }
+            ]
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Max matches"
+              },
+              {
+                "type": "string",
+                "description": "Max matches"
+              }
+            ]
+          },
+          "summary": {
+            "type": "boolean",
+            "description": "Return per-file counts"
+          },
+          "scope": {
+            "type": "string",
+            "const": "symbol",
+            "description": "Scope matches to symbols"
+          },
+          "scopeContext": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Symbol context lines"
+              },
+              {
+                "type": "string",
+                "description": "Symbol context lines"
+              }
+            ]
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/index.ts",
+        "source": "local",
+        "scope": "user",
+        "origin": "top-level"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": true,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/grep.md",
+      "providerDescriptionOverride": "Anchored file-content search results usable with edit.",
+      "stale": false
+    },
+    "find": {
+      "name": "find",
+      "description": "Find files by glob, respecting .gitignore.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "pattern"
+        ],
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Glob or basename pattern"
+          },
+          "path": {
+            "type": "string",
+            "description": "Search root"
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max entries"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "file"
+              },
+              {
+                "type": "string",
+                "const": "dir"
+              },
+              {
+                "type": "string",
+                "const": "any"
+              }
+            ],
+            "description": "Entry type filter"
+          },
+          "maxDepth": {
+            "type": "number",
+            "description": "Max directory depth"
+          },
+          "regex": {
+            "type": "boolean",
+            "description": "Treat pattern as regex"
+          },
+          "sortBy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "name"
+              },
+              {
+                "type": "string",
+                "const": "mtime"
+              },
+              {
+                "type": "string",
+                "const": "size"
+              }
+            ],
+            "description": "Sort key"
+          },
+          "reverse": {
+            "type": "boolean",
+            "description": "Reverse sort order"
+          },
+          "modifiedSince": {
+            "type": "string",
+            "description": "Modified after time"
+          },
+          "minSize": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Minimum file size"
+          },
+          "maxSize": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Maximum file size"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/index.ts",
+        "source": "local",
+        "scope": "user",
+        "origin": "top-level"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/find.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "ls": {
+      "name": "ls",
+      "description": "List one directory.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Directory path"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Max entries"
+          },
+          "glob": {
+            "type": "string",
+            "description": "Glob filter"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/index.ts",
+        "source": "local",
+        "scope": "user",
+        "origin": "top-level"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/ls.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "ast_search": {
+      "name": "ast_search",
+      "description": "Search code by AST pattern and return anchored matches.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "pattern"
+        ],
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "AST pattern"
+          },
+          "lang": {
+            "type": "string",
+            "description": "Language hint"
+          },
+          "path": {
+            "type": "string",
+            "description": "Search path"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/index.ts",
+        "source": "local",
+        "scope": "user",
+        "origin": "top-level"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/ast_search.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "nu": {
+      "name": "nu",
+      "description": "Run Nushell for structured data, filesystem metadata, and system inspection.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "command"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "Nushell script"
+          },
+          "timeout": {
+            "type": "number",
+            "description": "Timeout seconds"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/index.ts",
+        "source": "local",
+        "scope": "user",
+        "origin": "top-level"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/nu.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "workguard": {
+      "name": "workguard",
+      "description": "Create snapshots and drift reports for changed-file scope control.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "snapshot"
+              },
+              {
+                "type": "string",
+                "const": "report"
+              },
+              {
+                "type": "string",
+                "const": "latest"
+              }
+            ],
+            "description": "Workguard action to run."
+          },
+          "label": {
+            "type": "string",
+            "description": "Short label."
+          },
+          "root": {
+            "type": "string",
+            "description": "Repository/worktree root."
+          },
+          "snapshot": {
+            "type": "string",
+            "description": "Snapshot path."
+          },
+          "allowed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowed changed-path globs."
+          },
+          "maxChangedFiles": {
+            "type": "number",
+            "description": "Changed-file budget."
+          },
+          "reportOut": {
+            "type": "string",
+            "description": "JSON report path."
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "report"
+              },
+              {
+                "type": "string",
+                "const": "enforce"
+              }
+            ],
+            "description": "report or enforce."
+          },
+          "logProjectUsage": {
+            "type": "boolean",
+            "description": "Append local usage telemetry."
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-harbor-bench/extensions/pi-workguard/src/index.ts",
+        "source": "local",
+        "scope": "user",
+        "origin": "top-level"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/workguard.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "evidence_preserve": {
+      "name": "evidence_preserve",
+      "description": "Back up fragile evidence files before risky inspection or mutation.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "paths"
+        ],
+        "properties": {
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Files to preserve."
+          },
+          "label": {
+            "type": "string",
+            "description": "Short label."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Preservation reason."
+          },
+          "root": {
+            "type": "string",
+            "description": "Repository/worktree root."
+          },
+          "backupRoot": {
+            "type": "string",
+            "description": "Backup root override."
+          },
+          "includeDirectories": {
+            "type": "boolean",
+            "description": "Allow directory copies."
+          },
+          "logProjectUsage": {
+            "type": "boolean",
+            "description": "Append local usage telemetry."
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-harbor-bench/extensions/pi-workguard/src/index.ts",
+        "source": "local",
+        "scope": "user",
+        "origin": "top-level"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/evidence_preserve.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "output_contract_check": {
+      "name": "output_contract_check",
+      "description": "Check explicit JSON output contracts for schema/count consistency.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "action",
+          "prompt"
+        ],
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "preflight"
+              },
+              {
+                "type": "string",
+                "const": "check"
+              }
+            ],
+            "description": "Output-contract action to run."
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Visible prompt/contract path."
+          },
+          "output": {
+            "type": "string",
+            "description": "JSON output path."
+          },
+          "root": {
+            "type": "string",
+            "description": "Repository/worktree root."
+          },
+          "reportOut": {
+            "type": "string",
+            "description": "JSON report path."
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "report"
+              },
+              {
+                "type": "string",
+                "const": "enforce"
+              }
+            ],
+            "description": "report or enforce."
+          },
+          "require": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "count"
+              },
+              {
+                "type": "string",
+                "const": "schema"
+              }
+            ],
+            "description": "Preflight activation requirement."
+          },
+          "logProjectUsage": {
+            "type": "boolean",
+            "description": "Append local usage telemetry."
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-harbor-bench/extensions/pi-workguard/src/index.ts",
+        "source": "local",
+        "scope": "user",
+        "origin": "top-level"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/output_contract_check.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "structured_output_audit": {
+      "name": "structured_output_audit",
+      "description": "Return a self-check protocol for grouped, aggregate, count, total, or provenance outputs.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "includeNormalization": {
+            "type": "boolean",
+            "description": "Include order/uniqueness/format/count checks."
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-harbor-bench/extensions/pi-workguard/src/index.ts",
+        "source": "local",
+        "scope": "user",
+        "origin": "top-level"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/structured_output_audit.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "source_accounting": {
+      "name": "source_accounting",
+      "description": "Create/check scratch registers for source, provenance, audit, lineage, or inventory coverage.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "init"
+              },
+              {
+                "type": "string",
+                "const": "check"
+              },
+              {
+                "type": "string",
+                "const": "latest"
+              }
+            ],
+            "description": "Source-accounting action to run."
+          },
+          "root": {
+            "type": "string",
+            "description": "Repository/worktree root."
+          },
+          "label": {
+            "type": "string",
+            "description": "Short label."
+          },
+          "scratchRoot": {
+            "type": "string",
+            "description": "Scratch root override."
+          },
+          "register": {
+            "type": "string",
+            "description": "Source register path."
+          },
+          "output": {
+            "type": "string",
+            "description": "JSON output path."
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Visible prompt/contract path."
+          },
+          "reportOut": {
+            "type": "string",
+            "description": "JSON report path."
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "report"
+              },
+              {
+                "type": "string",
+                "const": "enforce"
+              }
+            ],
+            "description": "report or enforce."
+          },
+          "runOutputContract": {
+            "type": "boolean",
+            "description": "Run output-contract check when prompted."
+          },
+          "require": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "count"
+              },
+              {
+                "type": "string",
+                "const": "schema"
+              }
+            ],
+            "description": "Preflight activation requirement."
+          },
+          "logProjectUsage": {
+            "type": "boolean",
+            "description": "Append local usage telemetry."
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-harbor-bench/extensions/pi-workguard/src/index.ts",
+        "source": "local",
+        "scope": "user",
+        "origin": "top-level"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/source_accounting.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "workguard_usage": {
+      "name": "workguard_usage",
+      "description": "Summarize local Workguard/audit tool usage telemetry.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "logPath": {
+            "type": "string",
+            "description": "Usage JSONL path."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository filter."
+          },
+          "recentLimit": {
+            "type": "number",
+            "description": "Recent record limit."
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-harbor-bench/extensions/pi-workguard/src/index.ts",
+        "source": "local",
+        "scope": "user",
+        "origin": "top-level"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/workguard_usage.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "lsp": {
+      "name": "lsp",
+      "description": "Query language server for definitions, references, types, symbols, diagnostics, rename, and code actions.\n\nActions: definition, references, hover, signature, rename (require file + line/column or query), symbols (file, optional query), diagnostics (file), workspace-diagnostics (files array), codeAction (file + position).\nUse bash to find files: find src -name \"*.ts\" -type f",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "definition",
+              "references",
+              "hover",
+              "symbols",
+              "diagnostics",
+              "workspace-diagnostics",
+              "signature",
+              "rename",
+              "codeAction"
+            ]
+          },
+          "file": {
+            "type": "string",
+            "description": "File path (required for most actions)"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "File paths for workspace-diagnostics"
+          },
+          "line": {
+            "type": "number",
+            "description": "Line (1-indexed). Required for position-based actions unless query provided."
+          },
+          "column": {
+            "type": "number",
+            "description": "Column (1-indexed). Required for position-based actions unless query provided."
+          },
+          "endLine": {
+            "type": "number",
+            "description": "End line for range-based actions (codeAction)"
+          },
+          "endColumn": {
+            "type": "number",
+            "description": "End column for range-based actions (codeAction)"
+          },
+          "query": {
+            "type": "string",
+            "description": "Symbol name filter (for symbols) or to resolve position (for definition/references/hover/signature)"
+          },
+          "newName": {
+            "type": "string",
+            "description": "New name for rename action"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "all",
+              "error",
+              "warning",
+              "info",
+              "hint"
+            ],
+            "description": "Filter diagnostics: \"all\"|\"error\"|\"warning\"|\"info\"|\"hint\""
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-web-tools/.pi/npm/node_modules/pi-hooks/lsp/lsp-tool.ts",
+        "source": "npm:pi-hooks",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-web-tools/.pi/npm/node_modules/pi-hooks"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": true,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/lsp.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "ralph_loop": {
+      "name": "ralph_loop",
+      "description": "Run subagent tasks in a loop while a condition command prints 'true' to continue (anything else stops). Supports single and chain modes. Supports model/thinking overrides like subagent. Defaults to agent 'worker' and the latest user message when agent/task are omitted. If conditionCommand is omitted, it is inferred from the task text or defaults to 'echo true'.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "conditionCommand": {
+            "type": "string",
+            "description": "Bash command used for looping; continue while stdout is 'true' (case-insensitive). If omitted, inferred from task or defaults to 'echo true'."
+          },
+          "maxIterations": {
+            "type": "number",
+            "description": "Max iterations (optional)."
+          },
+          "sleepMs": {
+            "type": "number",
+            "description": "Sleep between iterations in ms (default 1000)."
+          },
+          "agent": {
+            "type": "string",
+            "description": "Name of the agent to invoke (for single mode)"
+          },
+          "task": {
+            "type": "string",
+            "description": "Task to delegate (for single mode)"
+          },
+          "chain": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "agent",
+                "task"
+              ],
+              "properties": {
+                "agent": {
+                  "type": "string",
+                  "description": "Name of the agent to invoke"
+                },
+                "task": {
+                  "type": "string",
+                  "description": "Task with optional {previous} placeholder for prior output"
+                },
+                "cwd": {
+                  "type": "string",
+                  "description": "Working directory for the agent process"
+                },
+                "model": {
+                  "type": "string",
+                  "description": "Override the agent's model (e.g., 'claude-opus-4-5', 'gpt-5.2-codex')"
+                },
+                "thinking": {
+                  "type": "string",
+                  "enum": [
+                    "off",
+                    "minimal",
+                    "low",
+                    "medium",
+                    "high",
+                    "xhigh"
+                  ],
+                  "description": "Thinking/reasoning level for the model"
+                }
+              }
+            },
+            "description": "Array of {agent, task} for sequential execution"
+          },
+          "agentScope": {
+            "type": "string",
+            "enum": [
+              "user",
+              "project",
+              "both"
+            ],
+            "description": "Which agent directories to use. Default: \"user\". Use \"both\" to include project-local agents.",
+            "default": "user"
+          },
+          "confirmProjectAgents": {
+            "type": "boolean",
+            "description": "Prompt before running project-local agents. Default: true.",
+            "default": true
+          },
+          "cwd": {
+            "type": "string",
+            "description": "Working directory for the agent process (single mode)"
+          },
+          "model": {
+            "type": "string",
+            "description": "Override the agent's model for single mode (e.g., 'claude-opus-4-5', 'gpt-5.2-codex')"
+          },
+          "thinking": {
+            "type": "string",
+            "enum": [
+              "off",
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ],
+            "description": "Thinking/reasoning level for the model"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-web-tools/.pi/npm/node_modules/pi-hooks/ralph-loop/ralph-loop.ts",
+        "source": "npm:pi-hooks",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-web-tools/.pi/npm/node_modules/pi-hooks"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/ralph_loop.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "megapowers_signal": {
+      "name": "megapowers_signal",
+      "description": "Signal a megapowers state transition. Actions: task_done (mark current implement task complete), plan_draft_done (signal draft is complete — transitions planMode from draft/revise to review and starts a new session), phase_next (advance to the next workflow phase), phase_back (go back one phase — e.g. verify→implement, code-review→implement; errors if no backward transition exists), tests_failed (mark RED after a failing test run), tests_passed (acknowledge GREEN after a passing test run), close_issue (mark issue as done, reset state — done phase only).",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "task_done"
+              },
+              {
+                "type": "string",
+                "const": "phase_next"
+              },
+              {
+                "type": "string",
+                "const": "phase_back"
+              },
+              {
+                "type": "string",
+                "const": "tests_failed"
+              },
+              {
+                "type": "string",
+                "const": "tests_passed"
+              },
+              {
+                "type": "string",
+                "const": "plan_draft_done"
+              },
+              {
+                "type": "string",
+                "const": "close_issue"
+              }
+            ]
+          },
+          "target": {
+            "type": "string",
+            "description": "Target phase for phase_next (enables backward transitions)"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-megapowers/extensions/megapowers/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-megapowers",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-megapowers"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/megapowers_signal.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "megapowers_plan_task": {
+      "name": "megapowers_plan_task",
+      "description": "Save or update a plan task. During draft mode, creates new tasks. During revise mode, updates existing tasks (partial — only provided fields are merged).",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "Task ID (1-based, sequential)"
+          },
+          "title": {
+            "type": "string",
+            "description": "Short task title"
+          },
+          "description": {
+            "type": "string",
+            "description": "Full task body — TDD steps, code blocks, implementation details (markdown)"
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "IDs of tasks this depends on"
+          },
+          "no_test": {
+            "type": "boolean",
+            "description": "true if this task doesn't need TDD"
+          },
+          "files_to_modify": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Existing files this task changes"
+          },
+          "files_to_create": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "New files this task creates"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-megapowers/extensions/megapowers/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-megapowers",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-megapowers"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/megapowers_plan_task.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "megapowers_plan_review": {
+      "name": "megapowers_plan_review",
+      "description": "Submit plan review verdict. Approves the plan or requests revisions with per-task feedback.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "verdict",
+          "feedback"
+        ],
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "revise"
+            ]
+          },
+          "feedback": {
+            "type": "string",
+            "description": "Review feedback — per-task assessment, issues found, suggestions (markdown)"
+          },
+          "approved_tasks": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "Task IDs that pass review"
+          },
+          "needs_revision_tasks": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "Task IDs that need revision"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-megapowers/extensions/megapowers/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-megapowers",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-megapowers"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/megapowers_plan_review.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "create_issue": {
+      "name": "create_issue",
+      "description": "Create a new issue file via validated parameters.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Required"
+          },
+          "type": {
+            "type": "string",
+            "description": "Required: feature|bugfix"
+          },
+          "description": {
+            "type": "string",
+            "description": "Required"
+          },
+          "milestone": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "number"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-megapowers/extensions/megapowers/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-megapowers",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-megapowers"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/create_issue.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "create_batch": {
+      "name": "create_batch",
+      "description": "Create a batch issue grouping source issues.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "title",
+          "type",
+          "sourceIds",
+          "description"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "bugfix",
+              "feature"
+            ]
+          },
+          "sourceIds": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-megapowers/extensions/megapowers/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-megapowers",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-megapowers"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/create_batch.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "symbol_graph": {
+      "name": "symbol_graph",
+      "description": "Summarize a symbol with relationships, tests, and key metadata.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Symbol name."
+          },
+          "file": {
+            "type": "string",
+            "description": "Disambiguating file path."
+          },
+          "include": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "neighborhood"
+                },
+                {
+                  "type": "string",
+                  "const": "contract"
+                },
+                {
+                  "type": "string",
+                  "const": "source"
+                }
+              ]
+            },
+            "description": "Extra sections to include."
+          },
+          "suppressTrustHeader": {
+            "type": "boolean",
+            "description": "Omit the Trust header."
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-codegraph/src/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-codegraph",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-codegraph"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/symbol_graph.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "impact": {
+      "name": "impact",
+      "description": "Classify blast radius for changed symbols.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "symbols",
+          "changeType"
+        ],
+        "properties": {
+          "symbols": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Changed symbol."
+            },
+            "description": "Changed symbols."
+          },
+          "changeType": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "signature_change"
+              },
+              {
+                "type": "string",
+                "const": "removal"
+              },
+              {
+                "type": "string",
+                "const": "behavior_change"
+              },
+              {
+                "type": "string",
+                "const": "addition"
+              }
+            ],
+            "description": "Change kind."
+          },
+          "maxDepth": {
+            "type": "number",
+            "description": "Maximum traversal depth."
+          },
+          "suppressTrustHeader": {
+            "type": "boolean",
+            "description": "Omit the Trust header."
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-codegraph/src/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-codegraph",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-codegraph"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/impact.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "trace": {
+      "name": "trace",
+      "description": "Return an execution path from an entry point, coverage-backed when available.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "entry"
+        ],
+        "properties": {
+          "entry": {
+            "type": "string",
+            "description": "Entry symbol or endpoint."
+          },
+          "file": {
+            "type": "string",
+            "description": "Disambiguating file path."
+          },
+          "suppressTrustHeader": {
+            "type": "boolean",
+            "description": "Omit the Trust header."
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-codegraph/src/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-codegraph",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-codegraph"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/trace.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "codex_review": {
+      "name": "codex_review",
+      "description": "Run a foreground Codex review of the working tree or base ref.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "base": {
+            "type": "string",
+            "description": "Base ref."
+          },
+          "focus": {
+            "type": "string",
+            "description": "Review focus."
+          }
+        },
+        "additionalProperties": false
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-codex-review/src/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-codex-review",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-codex-review"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/codex_review.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "codex_adversarial_review": {
+      "name": "codex_adversarial_review",
+      "description": "Run a skeptical foreground Codex review of the working tree or base ref.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "base": {
+            "type": "string",
+            "description": "Base ref."
+          },
+          "focus": {
+            "type": "string",
+            "description": "Review focus."
+          }
+        },
+        "additionalProperties": false
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-codex-review/src/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-codex-review",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-codex-review"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/codex_adversarial_review.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "codex_setup_check": {
+      "name": "codex_setup_check",
+      "description": "Check Codex CLI readiness, auth, app-server support, and review-gate state.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-codex-review/src/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-codex-review",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-codex-review"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/codex_setup_check.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "codex_status": {
+      "name": "codex_status",
+      "description": "List stored background Codex review jobs or inspect one job.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "description": "Job ID."
+          }
+        },
+        "additionalProperties": false
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-codex-review/src/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-codex-review",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-codex-review"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/codex_status.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "codex_result": {
+      "name": "codex_result",
+      "description": "Retrieve a stored background Codex review result.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "description": "Job ID."
+          }
+        },
+        "required": [
+          "jobId"
+        ],
+        "additionalProperties": false
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-codex-review/src/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-codex-review",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-codex-review"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/codex_result.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "codex_review_background": {
+      "name": "codex_review_background",
+      "description": "Launch a detached Codex review job.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "base": {
+            "type": "string",
+            "description": "Base ref."
+          },
+          "focus": {
+            "type": "string",
+            "description": "Review focus."
+          }
+        },
+        "additionalProperties": false
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-codex-review/src/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-codex-review",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-codex-review"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/codex_review_background.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "codex_rescue": {
+      "name": "codex_rescue",
+      "description": "Run a bounded Codex rescue task that may edit the worktree.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "Rescue prompt."
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "const": "fresh"
+              },
+              {
+                "const": "resume"
+              }
+            ],
+            "description": "Rescue mode."
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "additionalProperties": false
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-codex-review/src/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-codex-review",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-codex-review"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/codex_rescue.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "codex_cancel": {
+      "name": "codex_cancel",
+      "description": "Cancel a background Codex review job.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "description": "Job ID."
+          }
+        },
+        "required": [
+          "jobId"
+        ],
+        "additionalProperties": false
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-codex-review/src/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-codex-review",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-codex-review"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/codex_cancel.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "code_execution": {
+      "name": "code_execution",
+      "description": "Run Python orchestration for repo-wide or batched analysis using local tool wrappers. Use ptc.list_helpers() and ptc.help(name) for available helpers. Direct wrappers include read, grep, find, ls, and glob.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Python code to execute."
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-ptc-next/src/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-ptc-next",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-ptc-next"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/code_execution.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "gh_status": {
+      "name": "gh_status",
+      "description": "Query GitHub status for monitored repositories. Returns PR status, CI results, assigned issues. Use to check if your push/PR succeeded, investigate CI failures, or see what needs attention.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "repo": {
+            "type": "string",
+            "description": "Repository (owner/repo). Omit for current repo."
+          },
+          "pr": {
+            "type": "number",
+            "description": "PR number for detailed info"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/thinkingSpace/prototypes/gh-aware/extension/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/thinkingSpace/prototypes/gh-aware/extension",
+        "scope": "project",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/thinkingSpace/prototypes/gh-aware/extension"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/gh_status.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "web_search": {
+      "name": "web_search",
+      "description": "Search the web and return summarized source results.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query"
+          },
+          "queries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Batch search queries"
+          },
+          "numResults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "description": "Results per query"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "auto"
+              },
+              {
+                "type": "string",
+                "const": "instant"
+              },
+              {
+                "type": "string",
+                "const": "deep"
+              }
+            ],
+            "description": "Search type"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "company"
+              },
+              {
+                "type": "string",
+                "const": "research paper"
+              },
+              {
+                "type": "string",
+                "const": "news"
+              },
+              {
+                "type": "string",
+                "const": "tweet"
+              },
+              {
+                "type": "string",
+                "const": "people"
+              },
+              {
+                "type": "string",
+                "const": "personal site"
+              },
+              {
+                "type": "string",
+                "const": "financial report"
+              },
+              {
+                "type": "string",
+                "const": "pdf"
+              }
+            ],
+            "description": "Content category"
+          },
+          "includeDomains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Domains to include"
+          },
+          "excludeDomains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Domains to exclude"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "summary"
+              },
+              {
+                "type": "string",
+                "const": "highlights"
+              }
+            ],
+            "description": "Result detail level"
+          },
+          "freshness": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "realtime"
+              },
+              {
+                "type": "string",
+                "const": "day"
+              },
+              {
+                "type": "string",
+                "const": "week"
+              },
+              {
+                "type": "string",
+                "const": "any"
+              }
+            ],
+            "description": "Content freshness; \"realtime\" means last 1 hour"
+          },
+          "similarUrl": {
+            "type": "string",
+            "description": "Find similar pages"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-web-tools/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-web-tools",
+        "scope": "user",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-web-tools"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": true,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/web_search.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "fetch_content": {
+      "name": "fetch_content",
+      "description": "Fetch readable content from URL(s); use prompt for focused extraction.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "URL to fetch"
+          },
+          "urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "URLs to fetch"
+          },
+          "forceClone": {
+            "type": "boolean",
+            "description": "Force GitHub repository cloning"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Focused extraction prompt"
+          },
+          "noCache": {
+            "type": "boolean",
+            "description": "Bypass cached prompt results"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-web-tools/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-web-tools",
+        "scope": "user",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-web-tools"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": true,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/fetch_content.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "code_search": {
+      "name": "code_search",
+      "description": "Search for working code examples from GitHub, docs, and Stack Overflow.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Code example request"
+          },
+          "tokensNum": {
+            "type": "number",
+            "description": "Response token budget"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-web-tools/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-web-tools",
+        "scope": "user",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-web-tools"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": true,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/code_search.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "get_search_content": {
+      "name": "get_search_content",
+      "description": "Retrieve stored full content from a previous search or fetch result.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "responseId"
+        ],
+        "properties": {
+          "responseId": {
+            "type": "string",
+            "description": "Stored result ID"
+          },
+          "query": {
+            "type": "string",
+            "description": "Query to retrieve"
+          },
+          "queryIndex": {
+            "type": "number",
+            "description": "Query index"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to retrieve"
+          },
+          "urlIndex": {
+            "type": "number",
+            "description": "URL index"
+          },
+          "maxChars": {
+            "type": "number",
+            "description": "Maximum characters to return"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/pi/workspace/pi-web-tools/index.ts",
+        "source": "/Users/maxwellnewman/pi/workspace/pi-web-tools",
+        "scope": "user",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/pi/workspace/pi-web-tools"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": true,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/get_search_content.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "switch_model": {
+      "name": "switch_model",
+      "description": "List, search, or switch models. Supports aliases defined in aliases.json (e.g. 'cheap', 'coding'). Use when the user mentions a model by name, asks to change/switch/try/test with a specific model, or when you need a model with different capabilities (reasoning, vision, cost, context window).",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "list"
+              },
+              {
+                "type": "string",
+                "const": "search"
+              },
+              {
+                "type": "string",
+                "const": "switch"
+              }
+            ],
+            "description": "Action to perform: 'list' (show all models), 'search' (filter by query), or 'switch' (change model)"
+          },
+          "search": {
+            "type": "string",
+            "description": "For search/switch actions: search term to match model by provider, id, or name (e.g. 'sonnet', 'opus', 'gpt-5.2', 'anthropic/claude')"
+          },
+          "provider": {
+            "type": "string",
+            "description": "Filter to a specific provider (e.g. 'anthropic', 'openai', 'google', 'openrouter')"
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/.pi/agent/npm/node_modules/pi-model-switch/index.ts",
+        "source": "npm:pi-model-switch",
+        "scope": "user",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/.pi/agent/npm/node_modules/pi-model-switch"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/switch_model.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "agent": {
+      "name": "Agent",
+      "description": "Launch a new agent to handle complex, multi-step tasks autonomously.\n\nThe Agent tool launches specialized agents that autonomously handle complex tasks. Each agent type has specific capabilities and tools available to it.\n\nAvailable agent types:\nDefault agents:\n\nCustom agents:\n- general-purpose: General-purpose agent for complex, multi-step tasks\n- Explore: Fast codebase exploration agent (read-only)\n- Plan: Software architect for implementation planning (read-only)\n- code-reviewer: Production readiness review: quality, security, testing (read-only)\n- pals-implementer: Task-bounded implementation worker for parent-controlled PALS APPLY\n\nCustom agents can be defined in .pi/agents/<name>.md (project) or /Users/maxwellnewman/.pi/agent/agents/<name>.md (global) — they are picked up automatically. Project-level agents override global ones. Creating a .md file with the same name as a default agent overrides it.\n\nGuidelines:\n- For parallel work, use run_in_background: true on each agent. Foreground calls run sequentially — only one executes at a time.\n- Use Explore for codebase searches and code understanding.\n- Use Plan for architecture and implementation planning.\n- Use general-purpose for complex tasks that need file editing.\n- Provide clear, detailed prompts so the agent can work autonomously.\n- Agent results are returned as text — summarize them for the user.\n- Use run_in_background for work you don't need immediately. You will be notified when it completes.\n- Use resume with an agent ID to continue a previous agent's work.\n- Use steer_subagent to send mid-run messages to a running background agent.\n- Use model to specify a different model (as \"provider/modelId\", or fuzzy e.g. \"haiku\", \"sonnet\").\n- Use thinking to control extended thinking level.\n- Use inherit_context if the agent needs the parent conversation history.\n- Use isolation: \"worktree\" to run the agent in an isolated git worktree (safe parallel file modifications).\n- Use `schedule` only when the user explicitly asked for scheduled / recurring / delayed execution (e.g. \"every Monday\", \"in an hour\"). Don't auto-schedule from vague intent like \"monitor X\" — run once now or ask.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "prompt",
+          "description",
+          "subagent_type"
+        ],
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "The task for the agent to perform."
+          },
+          "description": {
+            "type": "string",
+            "description": "A short (3-5 word) description of the task (shown in UI)."
+          },
+          "subagent_type": {
+            "type": "string",
+            "description": "The type of specialized agent to use. Available types: general-purpose, Explore, Plan, code-reviewer, pals-implementer. Custom agents from .pi/agents/*.md (project) or /Users/maxwellnewman/.pi/agent/agents/*.md (global) are also available."
+          },
+          "model": {
+            "type": "string",
+            "description": "Optional model override. Accepts \"provider/modelId\" or fuzzy name (e.g. \"haiku\", \"sonnet\"). Omit to use the agent type's default."
+          },
+          "thinking": {
+            "type": "string",
+            "description": "Thinking level: off, minimal, low, medium, high, xhigh. Overrides agent default."
+          },
+          "max_turns": {
+            "type": "number",
+            "description": "Maximum number of agentic turns before stopping. Omit for unlimited (default).",
+            "minimum": 1
+          },
+          "run_in_background": {
+            "type": "boolean",
+            "description": "Set to true to run in background. Returns agent ID immediately. You will be notified on completion."
+          },
+          "resume": {
+            "type": "string",
+            "description": "Optional agent ID to resume from. Continues from previous context."
+          },
+          "isolated": {
+            "type": "boolean",
+            "description": "If true, agent gets no extension/MCP tools — only built-in tools."
+          },
+          "inherit_context": {
+            "type": "boolean",
+            "description": "If true, fork parent conversation into the agent. Default: false (fresh context)."
+          },
+          "isolation": {
+            "type": "string",
+            "const": "worktree",
+            "description": "Set to \"worktree\" to run the agent in a temporary git worktree (isolated copy of the repo). Changes are saved to a branch on completion."
+          },
+          "schedule": {
+            "type": "string",
+            "description": "Opt-in only — fire later instead of now. Omit to run immediately (the default, almost always correct). Formats: 6-field cron (\"0 0 9 * * 1\" = 9am Mon), interval (\"5m\"/\"1h\"), one-shot (\"+10m\" or ISO). Forces run_in_background; incompatible with inherit_context and resume. Returns job ID."
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/.pi/agent/npm/node_modules/@tintinweb/pi-subagents/src/index.ts",
+        "source": "npm:@tintinweb/pi-subagents",
+        "scope": "user",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/.pi/agent/npm/node_modules/@tintinweb/pi-subagents"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/agent.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "get_subagent_result": {
+      "name": "get_subagent_result",
+      "description": "Check status and retrieve results from a background agent. Use the agent ID returned by Agent with run_in_background.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "agent_id"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "description": "The agent ID to check."
+          },
+          "wait": {
+            "type": "boolean",
+            "description": "If true, wait for the agent to complete before returning. Default: false."
+          },
+          "verbose": {
+            "type": "boolean",
+            "description": "If true, include the agent's full conversation (messages + tool calls). Default: false."
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/.pi/agent/npm/node_modules/@tintinweb/pi-subagents/src/index.ts",
+        "source": "npm:@tintinweb/pi-subagents",
+        "scope": "user",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/.pi/agent/npm/node_modules/@tintinweb/pi-subagents"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/get_subagent_result.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "steer_subagent": {
+      "name": "steer_subagent",
+      "description": "Send a steering message to a running agent. The message will interrupt the agent after its current tool execution and be injected into its conversation, allowing you to redirect its work mid-run. Only works on running agents.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "agent_id",
+          "message"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "description": "The agent ID to steer (must be currently running)."
+          },
+          "message": {
+            "type": "string",
+            "description": "The steering message to send. This will appear as a user message in the agent's conversation."
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/.pi/agent/npm/node_modules/@tintinweb/pi-subagents/src/index.ts",
+        "source": "npm:@tintinweb/pi-subagents",
+        "scope": "user",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/.pi/agent/npm/node_modules/@tintinweb/pi-subagents"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/steer_subagent.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "process": {
+      "name": "process",
+      "description": "Manage background processes. Actions:\n- start: Run command in background (requires 'name' and 'command')\n  - alertOnSuccess (default: false): Get a turn to react when process completes successfully\n  - alertOnFailure (default: true): Get a turn to react when process crashes/fails\n  - alertOnKill (default: false): Get a turn to react if killed by external signal (killing via tool never triggers a turn)\n  - logWatches (optional): Runtime output watches that trigger immediate alerts while running\n    - pattern: regex string to match per output line\n    - stream: stdout | stderr | both (default both)\n    - repeat: false by default (single-fire). Set true for repeat alerts\n- list: Show all managed processes with their IDs and names\n- output: Get recent stdout/stderr (requires 'id')\n- logs: Get log file paths to inspect with read tool (requires 'id')\n- kill: Terminate a process (requires 'id')\n- clear: Remove all finished processes from the list\n- write: Write to process stdin (requires 'id' and 'input', optional 'end' to close stdin)\n\nImportant: You DON'T need to poll or wait for processes. Notifications arrive automatically based on your preferences. Start processes and continue with other work - you'll be informed if something requires attention.\n\nNote: User always sees process updates in the UI. The notify flags control whether YOU (the agent) get a turn to react (e.g. check results, fix code, restart).",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "start",
+              "list",
+              "output",
+              "logs",
+              "kill",
+              "clear",
+              "write"
+            ],
+            "description": "Action: start (run command), list (show all), output (get recent output), logs (get log file paths), kill (terminate), clear (remove finished), write (write to stdin)"
+          },
+          "command": {
+            "type": "string",
+            "description": "Command to run (required for start)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Friendly name for the process (required for start, e.g. 'backend-dev', 'test-runner')"
+          },
+          "id": {
+            "type": "string",
+            "description": "Process ID, returned by start and list actions (required for output/kill/logs/write)"
+          },
+          "input": {
+            "type": "string",
+            "description": "Data to write to process stdin (required for write action)"
+          },
+          "end": {
+            "type": "boolean",
+            "description": "Close stdin after writing (optional for write action, use for programs reading until EOF)"
+          },
+          "alertOnSuccess": {
+            "type": "boolean",
+            "description": "Get a turn to react when process completes successfully (default: false). Use for builds/tests where you need confirmation."
+          },
+          "alertOnFailure": {
+            "type": "boolean",
+            "description": "Get a turn to react when process fails/crashes (default: true). Use to be alerted of unexpected failures."
+          },
+          "alertOnKill": {
+            "type": "boolean",
+            "description": "Get a turn to react when process is killed by external signal (default: false). Note: killing via tool never triggers a turn."
+          },
+          "preview": {
+            "type": "string",
+            "enum": [
+              "start",
+              "list",
+              "output",
+              "logs",
+              "error"
+            ],
+            "description": "For action=debug_preview only: which rendered result variant to preview (default: start)"
+          },
+          "logWatches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "pattern"
+              ],
+              "properties": {
+                "pattern": {
+                  "type": "string",
+                  "description": "Regular expression pattern to match against process output lines"
+                },
+                "stream": {
+                  "type": "string",
+                  "enum": [
+                    "stdout",
+                    "stderr",
+                    "both"
+                  ],
+                  "description": "Which stream to watch (default: both). Use stdout/stderr to reduce noise."
+                },
+                "repeat": {
+                  "type": "boolean",
+                  "description": "Trigger every time this pattern matches (default: false, one-time)"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/.pi/agent/npm/node_modules/@aliou/pi-processes/src/index.ts",
+        "source": "npm:@aliou/pi-processes",
+        "scope": "user",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/.pi/agent/npm/node_modules/@aliou/pi-processes"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/process.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    },
+    "imagegen": {
+      "name": "imagegen",
+      "description": "Generate an image using OpenAI Codex/ChatGPT subscription image generation (gpt-image-2). Returns an image attachment and saves it to disk.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "Image description/prompt."
+          },
+          "size": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "1024x1024",
+              "1536x1024",
+              "1024x1536"
+            ]
+          },
+          "quality": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "background": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "opaque",
+              "transparent"
+            ]
+          },
+          "outputFormat": {
+            "type": "string",
+            "enum": [
+              "png",
+              "webp",
+              "jpeg"
+            ]
+          },
+          "thinking": {
+            "type": "string",
+            "enum": [
+              "off",
+              "minimal",
+              "low",
+              "medium",
+              "high"
+            ],
+            "description": "Dispatcher model reasoning effort before calling image_generation. Use 'off' to omit explicit reasoning. Defaults to 'low'."
+          },
+          "referencePaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional local image paths to send as visual references using input_image content."
+          },
+          "outputPath": {
+            "type": "string",
+            "description": "Optional exact path where the generated image should be saved. Defaults to ~/.pi/agent/generated-images/<id>.<format>."
+          }
+        }
+      },
+      "sourceInfo": {
+        "path": "/Users/maxwellnewman/.pi/agent/npm/node_modules/pi-imagegen/imagegen.ts",
+        "source": "npm:pi-imagegen",
+        "scope": "user",
+        "origin": "package",
+        "baseDir": "/Users/maxwellnewman/.pi/agent/npm/node_modules/pi-imagegen"
+      },
+      "enabled": true,
+      "replaceSnippet": false,
+      "replaceGuidelines": false,
+      "includeSection": false,
+      "snippetOverride": "",
+      "guidelineOverrides": [],
+      "promptBodyPath": "tools/imagegen.md",
+      "providerDescriptionOverride": "",
+      "stale": false
+    }
+  }
+}

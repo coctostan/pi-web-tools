@@ -1,0 +1,1 @@
+Return a self-check protocol for grouped, aggregate, count, total, or provenance outputs.

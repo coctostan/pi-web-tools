@@ -1,0 +1,1 @@
+Find files by glob, respecting .gitignore.

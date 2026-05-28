@@ -1,0 +1,1 @@
+Create snapshots and drift reports for changed-file scope control.

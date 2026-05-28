@@ -1,0 +1,1 @@
+Return an execution path from an entry point, coverage-backed when available.
