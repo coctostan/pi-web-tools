@@ -17,24 +17,16 @@ approved_tasks:
 needs_revision_tasks: []
 ---
 
-## Review
+All 9 "Fixed When" criteria are covered: AC1→T1,T3; AC2→T3; AC3→T2; AC4→T2 (preserved `"Failed to extract text from PDF: …"` wrapper, empty-text branch, oversized guard); AC5→T2; AC6→all tasks' Step 5; AC7→T5; AC8→T4; AC9→T5.
 
-All 9 Fixed-When criteria mapped to tasks (see plan.md coverage map). Ordering is additive: install unpdf → swap source+tests with both libs present → remove pdf-parse → docs + evidence.
+Ordering is linear and correct: T1 (additive install) → T2 (TDD swap, requires unpdf installed) → T3 (uninstall pdf-parse, gated on T2 swap so suite stays green) → {T4 docs, T5 evidence} parallel.
 
-**Per-task assessment:**
+Task realism verified against current `extract.ts` (the fix is already applied on this branch, confirming the unpdf API shape `getDocumentProxy(Uint8Array)` + `extractText(pdf, {mergePages:true})` returns `{ text: string | string[], totalPages }`). Tests use vitest at repo root matching project convention.
 
-1. **Add unpdf** — no-test justified (additive install). Verification via `npm ls unpdf` + full suite. ✅
-2. **Swap PDF branch + remock tests** — full TDD with copy-pasteable test code (`vi.mock("unpdf", ...)` + three test bodies) and full replacement implementation for the PDF block. Preserves `Failed to extract text from PDF: ${msg}` wrapper so the existing `result.error.toContain("PDF")` assertion still holds. Handles `text: string | string[]` union from unpdf via `typeof extracted === "string" ? extracted : extracted.join("\n")`. ✅
-3. **Remove pdf-parse** — introduces `dependencies.test.ts` as a real regression guard (fails until removal happens). Real expected failure text: `AssertionError: expected '^2.4.5' to be undefined`. ✅
-4. **README** — no-test (docs-only), with verification via `grep`. ✅
-5. **Install footprint evidence** — no-test (acceptance criteria #4 + #5 are evidence-only — `npm pack --dry-run`, `du`, import smoke test, fixture-read scan). ✅
+Task 2's title contains "and" but the test rewrite + implementation swap are inseparable — splitting would require duplicating `vi.mock("unpdf")` setup. Acceptable as one task.
 
-**Quality bar:**
-- Coverage: every Fixed-When criterion covered. ✅
-- Ordering: 1 → 2 → 3 → {4, 5}, no forward refs. ✅
-- TDD completeness: Task 2 and Task 3 have full Step 1–5 with real code. ✅
-- Granularity: each task = one logical change, ≤3 files. ✅
-- No-test validity: Tasks 1, 4, 5 each have justification + verification step. ✅
-- Self-containment: every task has copy-pasteable code and real paths. ✅
+Task 2 Step 2's predicted error string ("spy to be called 1 times, but got 0 times") is a best-guess; the task includes explicit escape-hatch guidance to paste the actual runner output. Acceptable.
 
-Approved.
+No-test tasks (T1, T4, T5) all have justifications and verification steps.
+
+Approving for implementation.

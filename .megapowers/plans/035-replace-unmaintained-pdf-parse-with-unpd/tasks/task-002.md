@@ -103,7 +103,7 @@ it("returns error for corrupt PDF without binary garbage", async () => {
 });
 ```
 
-Replace the **oversized PDF** test (`extract.test.ts:245-259`) with the same body it already has — the size guard runs before any library call, so it stays library-agnostic. No edit required to its assertions; just make sure `vi.mocked(extractText)` is **not** called:
+Replace the **oversized PDF** test (`extract.test.ts:245-259`) — size guard runs before library; assert `extractText` not called:
 
 ```ts
 it("rejects PDF that exceeds MAX_SIZE", async () => {
@@ -112,7 +112,7 @@ it("rejects PDF that exceeds MAX_SIZE", async () => {
     status: 200,
     headers: new Headers({
       "content-type": "application/pdf",
-      "content-length": String(10 * 1024 * 1024), // 10MB, over 5MB limit
+      "content-length": String(10 * 1024 * 1024),
     }),
     arrayBuffer: async () => new ArrayBuffer(0),
     text: async () => "",
@@ -124,7 +124,7 @@ it("rejects PDF that exceeds MAX_SIZE", async () => {
 });
 ```
 
-Also reset the unpdf mocks in `beforeEach` next to the existing `mockFetch.mockReset()`:
+Reset unpdf mocks in `beforeEach`:
 
 ```ts
 beforeEach(() => {
@@ -132,7 +132,6 @@ beforeEach(() => {
   mockFetch.mockReset();
   vi.mocked(extractText).mockReset();
   vi.mocked(getDocumentProxy).mockReset();
-  // Re-install default getDocumentProxy shim that just echoes the buffer.
   vi.mocked(getDocumentProxy).mockImplementation(async (buf: Uint8Array) => ({
     __mockPdf: true,
     byteLength: buf.byteLength,
@@ -144,11 +143,7 @@ beforeEach(() => {
 
 Run: `npx vitest run extract.test.ts`
 
-Expected: FAIL. Concretely:
-- `"extracts text from PDF content-type"` → `AssertionError: expected "spy" to be called 1 times, but got 0 times` (because `extract.ts` still imports `pdf-parse`, so `vi.mocked(getDocumentProxy)` is never invoked).
-- `"returns error for corrupt PDF without binary garbage"` → may incidentally pass (pdf-parse will reject the garbage buffer with its own error), but at minimum the first PDF test fails, which fails the suite.
-
-If the runner emits a different error string, paste that exact text into this step before continuing.
+Expected: FAIL — `AssertionError: expected "spy" to be called 1 times, but got 0 times` for `"extracts text from PDF content-type"` (because `extract.ts` still imports `pdf-parse`, so `vi.mocked(getDocumentProxy)` is never invoked).
 
 **Step 3 — Write minimal implementation**
 
@@ -193,7 +188,7 @@ Replace the PDF block (current `extract.ts:109-136`) with:
 Notes preserved across the swap:
 - `Failed to extract text from PDF: ${msg}` wrapper preserves the `result.error.toContain("PDF")` assertion.
 - `"Failed to extract text from PDF: no readable text found"` empty-content branch unchanged.
-- Pre-library size guards (`content-length` and post-arrayBuffer) unchanged.
+- Pre-library size guards unchanged.
 - `parser?.destroy()` finally block removed — unpdf has no destroy lifecycle.
 
 **Step 4 — Run test, verify it passes**
